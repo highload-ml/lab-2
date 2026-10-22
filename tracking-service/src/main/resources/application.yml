@@ -3,3 +3,10 @@ spring:
     name: tracking-service
   config:
     import: "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    openfeign:
+      client:
+        config:
+          project-service:
+            connectTimeout: 2000
+            readTimeout: 5000

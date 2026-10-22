@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: tracking-service
+  cloud:
+    config:
+      enabled: false
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/tracking_test
+    username: test
+    password: test
+  liquibase:
+    url: jdbc:postgresql://localhost:5432/tracking_test
+    user: test
+    password: test
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+eureka:
+  client:
+    enabled: false
+app:
+  project-service:
+    url: http://localhost:1
+  pagination:
+    max-page-size: 50

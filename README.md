@@ -1,8 +1,9 @@
 # Highload ML — ЛР2
 
 Реализована область разработчика 1 из [plan.md](plan.md): bootstrap, project-service,
-внутренний API, Eureka, Config Server, Gateway и окружение. Tracking и registry пока
-**bootstrap-приложения без бизнес-эндпоинтов**; их перенос и Python-клиент — B1–B5.
+внутренний API, Eureka, Config Server, Gateway и окружение. Tracking реализован на WebFlux + R2DBC (B1–B2), см. [tracking-service/README.md](tracking-service/README.md).
+Registry пока bootstrap-приложение без бизнес-эндпоинтов; его перенос, Circuit Breaker
+и адаптация Python-клиента остаются B3–B5.
 Исходный монолит сохранён в `legacy-lab1/` для этого переноса.
 
 ## Запуск
@@ -63,8 +64,8 @@ Config Server при bootRun ищет `../config/` относительно св
 
 Бизнес-код для переноса: `legacy-lab1/src/main/java/ru/itmo/highload_ml/{tracking,registry}`,
 миграции и тесты находятся рядом в legacy-lab1. Модули tracking-service и registry-service уже
-получают Config и регистрируются в Eureka. В config/ подготовлены R2DBC/JDBC-настройки, которые
-начнут использоваться после подключения соответствующих зависимостей в B1/B3.
+получают Config и регистрируются в Eureka. Tracking использует R2DBC для запросов и JDBC для Liquibase. Настройки JPA для registry
+начнут использоваться после подключения зависимостей в B3.
 
 Для проверки исходного монолита: `./gradlew -PincludeLegacy :legacy-lab1:bootJar`.
 Не запускайте его одновременно с Gateway на стандартном порту 8080.
