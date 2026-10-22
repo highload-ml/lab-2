@@ -39,11 +39,11 @@ class ModelVersionServiceTest {
     }
     @Test void promotionLocksProjectBeforeTargetAndRejectsInvalidState() {
         UUID id = UUID.randomUUID();
-        when(versions.findLocked(id, project)).thenReturn(Optional.of(new ModelVersion(project, artifact, 1)));
+        when(versions.findLockedByIdAndProjectId(id, project)).thenReturn(Optional.of(new ModelVersion(project, artifact, 1)));
         assertThatThrownBy(() -> service.promote(project, id)).isInstanceOf(InvalidModelVersionTransitionException.class);
         var order = inOrder(counter, versions);
         order.verify(counter).lock(project);
-        order.verify(versions).findLocked(id, project);
+        order.verify(versions).findLockedByIdAndProjectId(id, project);
         verify(versions, never()).flush();
     }
 }

@@ -3,6 +3,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,9 +25,9 @@ public class MetricService {
     public Mono<MetricResponse> log(UUID id, CreateMetricRequest request) {
         return logBatch(id, new CreateMetricsRequest(List.of(request))).single();
     }
-    /** The run lock, status check and entire batch share one connection and transaction. */
+    /** The status check and entire batch share one transaction. */
     public Flux<MetricResponse> logBatch(UUID id, CreateMetricsRequest request) {
-        return transactions.execute(status -> runs.findLocked(id)
+        return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
                 .flatMap(run -> {
                     if (run.getStatus() != RunStatus.RUNNING) return Mono.error(new RunNotRunningException(id, run.getStatus()));
@@ -42,7 +43,7 @@ public class MetricService {
                 .switchIfEmpty(Mono.error(new MetricNotFoundException(metricId))).map(mapper::toResponse);
     }
     public Mono<Long> count(UUID runId) { return runService.requireRun(runId).then(metrics.countByRunId(runId)); }
-    public Flux<MetricResponse> findAll(UUID runId, int size, long offset) {
-        return runService.requireRun(runId).thenMany(metrics.findPage(runId, size, offset)).map(mapper::toResponse);
+    public Flux<MetricResponse> findAll(UUID runId, Pageable pageable) {
+        return runService.requireRun(runId).thenMany(metrics.findByRunId(runId, pageable)).map(mapper::toResponse);
     }
 }

@@ -24,7 +24,7 @@ class CommitVisibilityTest {
         var repository = mock(RunRepository.class);
         UUID id = UUID.randomUUID();
         var run = new Run(UUID.randomUUID(), UUID.randomUUID(), "run"); run.setId(id);
-        when(repository.findLocked(id)).thenReturn(Mono.just(run));
+        when(repository.findById(id)).thenReturn(Mono.just(run));
         when(repository.save(run)).thenReturn(Mono.just(run));
         var service = new RunService(repository, new RunMapper(), mock(ProjectAccess.class), TransactionalOperator.create(manager));
         StepVerifier.create(service.start(id)).then(() -> assertThat(committed.tryEmitError(new IllegalStateException("commit failed")))

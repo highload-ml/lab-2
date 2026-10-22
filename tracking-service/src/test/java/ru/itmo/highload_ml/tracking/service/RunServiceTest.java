@@ -1,5 +1,7 @@
 package ru.itmo.highload_ml.tracking.service;
 import java.time.Instant;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +41,7 @@ class RunServiceTest extends ServiceTestSupport {
     void permitsOnlyValidTransitions(RunStatus from, RunStatus to) {
         Run run = new Run(experimentId, UUID.randomUUID(), "run");
         run.setId(id); run.setStatus(from); run.setStartedAt(Instant.now().plusSeconds(60));
-        when(runs.findLocked(id)).thenReturn(Mono.just(run));
+        when(runs.findById(id)).thenReturn(Mono.just(run));
         boolean valid = (from == RunStatus.CREATED && to == RunStatus.RUNNING)
                 || (from == RunStatus.RUNNING && to != RunStatus.RUNNING);
         if (valid) when(runs.save(run)).thenReturn(Mono.just(run));
@@ -55,7 +57,7 @@ class RunServiceTest extends ServiceTestSupport {
         StepVerifier.create(service.getById(id)).expectError(RunNotFoundException.class).verify();
     }
     @Test void rejectsUnknownRunOnTransition() {
-        when(runs.findLocked(id)).thenReturn(Mono.empty());
+        when(runs.findById(id)).thenReturn(Mono.empty());
         StepVerifier.create(service.start(id)).expectError(RunNotFoundException.class).verify();
     }
     @Test void remoteFailureDoesNotWrite() {
@@ -72,15 +74,20 @@ class RunServiceTest extends ServiceTestSupport {
                 .assertNext(run -> { assertThat(run.id()).isEqualTo(id); assertThat(run.status()).isEqualTo(RunStatus.CREATED); }).verifyComplete();
     }
     @Test void scrollUsesKeysetPosition() {
+        var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
         Run run = new Run(experimentId, UUID.randomUUID(), "run"); run.setId(id);
         var cursor = new RunCursor(Instant.now(), id);
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
-        when(runs.findBefore(experimentId, cursor.createdAt(), id, 3)).thenReturn(Flux.just(run));
+        when(runs.findByExperimentIdAndCreatedAtAndIdLessThan(
+                experimentId, cursor.createdAt(), id, page)).thenReturn(Flux.just(run));
+        when(runs.findByExperimentIdAndCreatedAtLessThan(
+                experimentId, cursor.createdAt(), page)).thenReturn(Flux.empty());
         StepVerifier.create(service.findAll(experimentId, cursor, 3)).expectNextCount(1).verifyComplete();
     }
     @Test void firstScrollUsesBoundedQuery() {
+        var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
-        when(runs.findFirstBatch(experimentId, 3)).thenReturn(Flux.empty());
+        when(runs.findByExperimentId(experimentId, page)).thenReturn(Flux.empty());
         StepVerifier.create(service.findAll(experimentId, null, 3)).verifyComplete();
     }
 }

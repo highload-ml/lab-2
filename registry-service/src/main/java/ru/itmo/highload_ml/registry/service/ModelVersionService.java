@@ -86,7 +86,7 @@ public class ModelVersionService {
     }
 
     private ModelVersion locked(UUID projectId, UUID id) {
-        return versions.findLocked(id, projectId).orElseThrow(() -> new ModelVersionNotFoundException(id));
+        return versions.findLockedByIdAndProjectId(id, projectId).orElseThrow(() -> new ModelVersionNotFoundException(id));
     }
 
     private ModelVersionResponse response(ModelVersion version) {

@@ -56,11 +56,10 @@ public class MetricController {
     @ApiResponse(responseCode = "404", description = "Run not found")
     public Flux<MetricResponse> findAll(@PathVariable UUID runId, @RequestParam(defaultValue = "0") int page,
                                        @RequestParam(defaultValue = "20") int size, ServerHttpResponse response) {
-        int limit = pagination.size(size);
-        long offset = pagination.offset(page, size);
+        var pageable = pagination.page(page, size, "recordedAt", "id");
         return service.count(runId).flatMapMany(count -> {
             response.getHeaders().set("X-Total-Count", Long.toString(count));
-            return service.findAll(runId, limit, offset);
+            return service.findAll(runId, pageable);
         });
     }
 }
