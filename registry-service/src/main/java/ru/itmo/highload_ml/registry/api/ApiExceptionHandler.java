@@ -1,4 +1,7 @@
 package ru.itmo.highload_ml.registry.api;
+import feign.FeignException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import org.springframework.cloud.client.circuitbreaker.NoFallbackAvailableException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +21,8 @@ public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     @ExceptionHandler(Exception.class)
     public ProblemDetail handle(Exception error, ServerWebExchange exchange) {
+        // Spring Cloud wraps both rejected calls and Feign failures when no fallback is supplied.
+        while (error instanceof NoFallbackAvailableException && error.getCause() instanceof Exception cause) error = cause;
         HttpStatus status = switch (error) {
             case NotFoundException ignored -> HttpStatus.NOT_FOUND;
             case ConflictException ignored -> HttpStatus.CONFLICT;
@@ -28,13 +33,9 @@ public class ApiExceptionHandler {
         if (error instanceof ErrorResponse response) {
             exchange.getResponse().getHeaders().putAll(response.getHeaders());
             problem = response.getBody();
-        } else {
-            if (status == HttpStatus.INTERNAL_SERVER_ERROR && !(error instanceof feign.FeignException)) log.error("Unexpected registry error", error);
-            problem = ProblemDetail.forStatusAndDetail(status, status == HttpStatus.INTERNAL_SERVER_ERROR
-                    ? "An unexpected error occurred" : error.getMessage());
-        }
-        if (error instanceof feign.FeignException remote) {
-            status = switch (remote.status()) {
+        } else if (error instanceof FeignException || error instanceof CallNotPermittedException) {
+            int upstreamStatus = error instanceof FeignException remote ? remote.status() : -1;
+            status = switch (upstreamStatus) {
                 case 404 -> HttpStatus.NOT_FOUND;
                 case 422 -> HttpStatus.UNPROCESSABLE_CONTENT;
                 default -> HttpStatus.SERVICE_UNAVAILABLE;
@@ -44,6 +45,10 @@ public class ApiExceptionHandler {
                 case UNPROCESSABLE_CONTENT -> "User is not a project member";
                 default -> "A required service is unavailable";
             });
+        } else {
+            if (status == HttpStatus.INTERNAL_SERVER_ERROR) log.error("Unexpected registry error", error);
+            problem = ProblemDetail.forStatusAndDetail(status, status == HttpStatus.INTERNAL_SERVER_ERROR
+                    ? "An unexpected error occurred" : error.getMessage());
         }
         if (error instanceof WebExchangeBindException validation) {
             Map<String, List<String>> fields = new LinkedHashMap<>();

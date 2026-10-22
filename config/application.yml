@@ -17,3 +17,36 @@ management:
         enabled: true
 server:
   shutdown: graceful
+
+
+# The same outbound policy is used by tracking and registry Feign clients.
+spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connectTimeout: ${FEIGN_CONNECT_TIMEOUT_MS:2000}
+            readTimeout: ${FEIGN_READ_TIMEOUT_MS:5000}
+    circuitbreaker:
+      resilience4j:
+        disable-time-limiter: true # Feign owns the network timeouts.
+        disable-thread-pool: true # Execute on the caller boundedElastic worker.
+      bulkhead:
+        resilience4j:
+          enabled: false # Blocking Feign already runs on boundedElastic.
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: ${CB_WINDOW_SIZE:10}
+        minimumNumberOfCalls: ${CB_MIN_CALLS:5}
+        failureRateThreshold: ${CB_FAILURE_RATE:50}
+        waitDurationInOpenState: ${CB_OPEN_DURATION:10s}
+        permittedNumberOfCallsInHalfOpenState: ${CB_HALF_OPEN_CALLS:2}
+        ignoreExceptions:
+          - feign.FeignException$NotFound
+          - feign.FeignException$UnprocessableEntity

@@ -3,10 +3,3 @@ spring:
     name: registry-service
   config:
     import: "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
-  cloud:
-    openfeign:
-      client:
-        config:
-          default:
-            connectTimeout: 2000
-            readTimeout: 5000
