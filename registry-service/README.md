@@ -83,7 +83,7 @@ return Mono.fromCallable(action).subscribeOn(Schedulers.boundedElastic());
 
 Feign использует Eureka; для тестов можно задать `app.project-service.url` и
 `app.tracking-service.url`. Таймауты: connect 2 секунды, read 5 секунд.
-Circuit Breaker остаётся B4. Для Feign в WebFlux явно подключён `spring-boot-http-converter`.
+Circuit Breaker реализован в B4: [общие настройки и объяснение](../README.md#b4-отказы-зависимостей). Для Feign в WebFlux явно подключён `spring-boot-http-converter`.
 
 ## Проверка из корня lab-2
 
