@@ -97,8 +97,4 @@ class ModelVersionServiceIntegrationTest extends RegistryModuleIntegrationTest {
     private ru.itmo.highload_ml.registry.api.dto.ModelVersionResponse register(Fixture fixture, UUID artifactId) {
         return service.register(fixture.projectId(), new RegisterModelVersionRequest(fixture.userId(), artifactId));
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
 }

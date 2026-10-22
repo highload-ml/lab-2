@@ -1,6 +1,8 @@
 package ru.itmo.highload_ml.tracking.service;
 
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -72,7 +74,14 @@ public class MetricService {
             metrics.add(new Metric(run, request.name(), request.value(), request.step()));
         }
 
-        return metricRepository.saveAllAndFlush(metrics).stream().map(mapper::toResponse).toList();
+        try {
+            return metricRepository.saveAllAndFlush(metrics).stream().map(mapper::toResponse).toList();
+        } catch (DataIntegrityViolationException e) {
+            if (hasConstraint(e, "uk_metrics_run_name_step")) {
+                throw new DuplicateMetricException(runId);
+            }
+            throw e;
+        }
     }
 
     private void requireRun(UUID runId) {
@@ -82,5 +91,15 @@ public class MetricService {
     }
 
     private record MetricKey(String name, long step) {
+    }
+
+    private static boolean hasConstraint(Throwable error, String constraintName) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation
+                    && constraintName.equals(violation.getConstraintName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

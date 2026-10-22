@@ -1,6 +1,8 @@
 package ru.itmo.highload_ml.registry.service;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -14,6 +16,7 @@ import ru.itmo.highload_ml.registry.api.dto.RegisterModelVersionRequest;
 import ru.itmo.highload_ml.registry.exception.InvalidModelArtifactException;
 import ru.itmo.highload_ml.registry.exception.InvalidModelVersionTransitionException;
 import ru.itmo.highload_ml.registry.exception.ModelVersionNotFoundException;
+import ru.itmo.highload_ml.registry.exception.ModelArtifactAlreadyRegisteredException;
 import ru.itmo.highload_ml.registry.mapper.ModelVersionMapper;
 import ru.itmo.highload_ml.registry.model.ModelVersion;
 import ru.itmo.highload_ml.registry.model.ModelVersionState;
@@ -34,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -159,8 +163,6 @@ class ModelVersionServiceTest {
         calls.verify(repository, times(2)).flush();
     }
 
-<<<<<<< HEAD
-=======
     @Test
     void promotionRejectsMissingVersion() {
         UUID missingId = UUID.randomUUID();
@@ -169,7 +171,33 @@ class ModelVersionServiceTest {
         verify(repository).findByIdAndProjectId(missingId, projectId);
     }
 
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
+    @Test
+    void registerTranslatesArtifactUniqueConstraintRaceToConflict() {
+        when(artifactLookupPort.getDetails(artifactId)).thenReturn(
+                new ArtifactDetails(artifactId, experimentId, ArtifactType.MODEL, RunStatus.COMPLETED));
+        when(experimentAccessPort.getProjectId(experimentId)).thenReturn(projectId);
+        ConstraintViolationException violation = mock(ConstraintViolationException.class);
+        when(violation.getConstraintName()).thenReturn("uk_model_versions_artifact");
+        when(repository.saveAndFlush(any(ModelVersion.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate", violation));
+
+        assertThatThrownBy(() -> service.register(projectId, request()))
+                .isInstanceOf(ModelArtifactAlreadyRegisteredException.class);
+    }
+
+    @Test
+    void registerPreservesUnrelatedDatabaseFailure() {
+        when(artifactLookupPort.getDetails(artifactId)).thenReturn(
+                new ArtifactDetails(artifactId, experimentId, ArtifactType.MODEL, RunStatus.COMPLETED));
+        when(experimentAccessPort.getProjectId(experimentId)).thenReturn(projectId);
+        ConstraintViolationException violation = mock(ConstraintViolationException.class);
+        when(violation.getConstraintName()).thenReturn("uk_model_versions_project_version");
+        DataIntegrityViolationException failure = new DataIntegrityViolationException("duplicate", violation);
+        when(repository.saveAndFlush(any(ModelVersion.class))).thenThrow(failure);
+
+        assertThatThrownBy(() -> service.register(projectId, request())).isSameAs(failure);
+    }
+
     private RegisterModelVersionRequest request() {
         return new RegisterModelVersionRequest(userId, artifactId);
     }

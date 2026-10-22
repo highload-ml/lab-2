@@ -51,16 +51,10 @@ public class RunService {
         return runs.map(mapper::toResponse);
     }
 
-<<<<<<< HEAD
     /** Status check and transition are applied in one transaction and flushed before the response is built. */
     @Transactional
     public RunResponse start(UUID runId) {
         Run run = findRun(runId);
-=======
-    @Transactional
-    public RunResponse start(UUID runId) {
-        Run run = requireRun(runId);
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
         requireStatus(run, RunStatus.CREATED, RunStatus.RUNNING);
         run.setStartedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         run.setStatus(RunStatus.RUNNING);
@@ -79,11 +73,7 @@ public class RunService {
     }
 
     private RunResponse finish(UUID runId, RunStatus target) {
-<<<<<<< HEAD
         Run run = findRun(runId);
-=======
-        Run run = requireRun(runId);
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
         requireStatus(run, RunStatus.RUNNING, target);
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         // Keep the database invariant even if the system clock moves backwards between transitions.
@@ -93,11 +83,7 @@ public class RunService {
         return mapper.toResponse(run);
     }
 
-<<<<<<< HEAD
     private Run findRun(UUID runId) {
-=======
-    private Run requireRun(UUID runId) {
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
         return runRepository.findById(runId)
                 .orElseThrow(() -> new RunNotFoundException(runId));
     }

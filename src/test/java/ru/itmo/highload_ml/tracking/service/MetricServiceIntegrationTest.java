@@ -112,8 +112,4 @@ class MetricServiceIntegrationTest extends ProjectModuleIntegrationTest {
     private static CreateMetricRequest metric(String name, long step) {
         return new CreateMetricRequest(name, new BigDecimal("0.95000000"), step);
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
 }

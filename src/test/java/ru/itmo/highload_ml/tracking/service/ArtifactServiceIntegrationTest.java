@@ -105,8 +105,4 @@ class ArtifactServiceIntegrationTest extends ProjectModuleIntegrationTest {
     private static CreateArtifactRequest request() {
         return new CreateArtifactRequest("weights", ArtifactType.MODEL, "models/weights.bin", 1024L);
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
 }

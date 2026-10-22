@@ -91,12 +91,7 @@ public class RunController {
     @ApiResponse(responseCode = "404", description = "Run not found",
             content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<RunResponse> getById(@PathVariable UUID runId) {
-<<<<<<< HEAD
-        RunResponse run = runService.getById(runId);
-        return ResponseEntity.ok(run);
-=======
         return ResponseEntity.ok(runService.getById(runId));
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
     }
 
     @PostMapping("/runs/{runId}/start")
@@ -107,12 +102,7 @@ public class RunController {
     @ApiResponse(responseCode = "422", description = "Invalid status transition",
             content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<RunResponse> start(@PathVariable UUID runId) {
-<<<<<<< HEAD
-        RunResponse run = runService.start(runId);
-        return ResponseEntity.ok(run);
-=======
         return ResponseEntity.ok(runService.start(runId));
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
     }
 
     @PostMapping("/runs/{runId}/complete")
@@ -123,12 +113,7 @@ public class RunController {
     @ApiResponse(responseCode = "422", description = "Invalid status transition",
             content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<RunResponse> complete(@PathVariable UUID runId) {
-<<<<<<< HEAD
-        RunResponse run = runService.complete(runId);
-        return ResponseEntity.ok(run);
-=======
         return ResponseEntity.ok(runService.complete(runId));
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
     }
 
     @PostMapping("/runs/{runId}/fail")
@@ -139,11 +124,6 @@ public class RunController {
     @ApiResponse(responseCode = "422", description = "Invalid status transition",
             content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<RunResponse> fail(@PathVariable UUID runId) {
-<<<<<<< HEAD
-        RunResponse run = runService.fail(runId);
-        return ResponseEntity.ok(run);
-=======
         return ResponseEntity.ok(runService.fail(runId));
->>>>>>> 777bf4594fd0306c9029215022fb36840cd757b1
     }
 }
