@@ -1,0 +1,56 @@
+server:
+  port: ${SERVER_PORT:8080}
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+          trusted-proxies: ".*"
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 5s
+          routes:
+            - id: registry-api
+              uri: lb://registry-service
+              predicates:
+                - Path=/api/v1/projects/{projectId}/model-versions/**
+            - id: tracking-api
+              uri: lb://tracking-service
+              predicates:
+                - Path=/api/v1/experiments/{experimentId}/runs/**,/api/v1/runs/**
+            - id: project-api
+              uri: lb://project-service
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/tags/**,/api/v1/projects,/api/v1/projects/{projectId},/api/v1/projects/{projectId}/members/**,/api/v1/projects/{projectId}/experiments/**
+            - id: project-docs
+              uri: lb://project-service
+              predicates:
+                - Path=/v3/api-docs/project
+              filters:
+                - SetPath=/v3/api-docs
+            - id: tracking-docs
+              uri: lb://tracking-service
+              predicates:
+                - Path=/v3/api-docs/tracking
+              filters:
+                - SetPath=/v3/api-docs
+            - id: registry-docs
+              uri: lb://registry-service
+              predicates:
+                - Path=/v3/api-docs/registry
+              filters:
+                - SetPath=/v3/api-docs
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+    urls:
+      - name: Projects
+        url: /v3/api-docs/project
+      - name: Tracking
+        url: /v3/api-docs/tracking
+      - name: Registry
+        url: /v3/api-docs/registry

@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-experiment-active
+      author: lab2
+      changes:
+        - addColumn:
+            tableName: experiments
+            columns:
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: experiments
+            indexName: idx_experiments_project_active
+            columns:
+              - column:
+                  name: project_id
+              - column:
+                  name: active

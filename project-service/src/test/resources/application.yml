@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: project-service
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://localhost:5432/project
+    username: project
+    password: project
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+  mvc:
+    problemdetails:
+      enabled: true
+eureka:
+  client:
+    enabled: false
+app:
+  pagination:
+    max-page-size: 50

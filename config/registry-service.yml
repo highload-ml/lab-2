@@ -1,0 +1,22 @@
+server:
+  port: ${SERVER_PORT:8083}
+  forward-headers-strategy: framework
+# Activated when Developer 2 adds JPA and Liquibase dependencies.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:registry}
+    username: ${DB_USERNAME:registry}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+app:
+  pagination:
+    max-page-size: ${MAX_PAGE_SIZE:50}
+springdoc:
+  paths-to-match: /api/v1/**
