@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: registry/101-create-model-versions.yml
+      relativeToChangelogFile: true

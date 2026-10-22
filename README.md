@@ -1,9 +1,9 @@
 # Highload ML — ЛР2
 
-Реализована область разработчика 1 из [plan.md](plan.md): bootstrap, project-service,
+Реализована область разработчика 1 из командного плана: bootstrap, project-service,
 внутренний API, Eureka, Config Server, Gateway и окружение. Tracking реализован на WebFlux + R2DBC (B1–B2), см. [tracking-service/README.md](tracking-service/README.md).
-Registry пока bootstrap-приложение без бизнес-эндпоинтов; его перенос, Circuit Breaker
-и адаптация Python-клиента остаются B3–B5.
+Registry реализован на WebFlux + JPA (B3), см. [registry-service/README.md](registry-service/README.md).
+Circuit Breaker и адаптация Python-клиента остаются B4–B5.
 Исходный монолит сохранён в `legacy-lab1/` для этого переноса.
 
 ## Запуск
@@ -33,13 +33,13 @@ docker compose up --build --wait
 ```sh
 ./gradlew assemble                     # шесть исполняемых jar
 ./gradlew test                         # unit, HTTP и инфраструктурные тесты без Docker
-./gradlew check jacocoTestReport       # также PostgreSQL/Testcontainers и >=70% покрытия project-service
+./gradlew check jacocoTestReport       # также PostgreSQL/Testcontainers и >=70% покрытия бизнес-сервисов
 ```
 
 Отчёты: `<module>/build/reports/tests/{test,integrationTest}/`,
-`project-service/build/reports/jacoco/test/html/index.html`.
+`<module>/build/reports/jacoco/test/html/index.html`.
 PostgreSQL-тесты помечены `integration`, запускаются отдельной задачей integrationTest.
-CI выполняет check, строит Compose, запускает окружение и smoke-проверку.
+CI выполняет check, строит Compose и запускает smoke-сценарии project, tracking и registry.
 
 ## Запуск JVM отдельно
 
@@ -47,6 +47,8 @@ CI выполняет check, строит Compose, запускает окруж
 ./gradlew :discovery-server:bootRun
 ./gradlew :config-server:bootRun
 DB_PASSWORD=... ./gradlew :project-service:bootRun
+DB_PASSWORD=... ./gradlew :tracking-service:bootRun
+DB_PASSWORD=... ./gradlew :registry-service:bootRun
 ./gradlew :api-gateway:bootRun
 ```
 
@@ -56,16 +58,14 @@ DB_PASSWORD=... ./gradlew :project-service:bootRun
 Config Server при bootRun ищет `../config/` относительно своего модуля;
 при запуске jar из корня задайте `CONFIG_REPO=file:./config/`.
 
-## Передача разработчику 2
+## Разбор бизнес-сервисов
 
-[Контракты HTTP, ошибки и пагинация](docs/contracts.md),
-[версии и архитектурные решения](docs/architecture.md),
-[состояние реализации и проверки](docs/developer-1-status.md).
+- [Tracking: R2DBC, транзакции и API](tracking-service/README.md).
+- [Registry: карта файлов, Reactor + JPA и API](registry-service/README.md).
 
-Бизнес-код для переноса: `legacy-lab1/src/main/java/ru/itmo/highload_ml/{tracking,registry}`,
-миграции и тесты находятся рядом в legacy-lab1. Модули tracking-service и registry-service уже
-получают Config и регистрируются в Eureka. Tracking использует R2DBC для запросов и JDBC для Liquibase. Настройки JPA для registry
-начнут использоваться после подключения зависимостей в B3.
+Оба сервиса получают Config и регистрируются в Eureka. Tracking использует R2DBC
+для запросов и JDBC для Liquibase; registry — JPA/JDBC и Liquibase.
+Исходники ЛР1 сохранены в `legacy-lab1/` для сравнения.
 
 Для проверки исходного монолита: `./gradlew -PincludeLegacy :legacy-lab1:bootJar`.
 Не запускайте его одновременно с Gateway на стандартном порту 8080.
