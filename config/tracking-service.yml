@@ -1,7 +1,7 @@
 server:
   port: ${SERVER_PORT:8082}
   forward-headers-strategy: framework
-# Activated when Developer 2 adds R2DBC and Liquibase dependencies.
+# Runtime queries use R2DBC; Liquibase migrations use a separate JDBC connection.
 spring:
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tracking}

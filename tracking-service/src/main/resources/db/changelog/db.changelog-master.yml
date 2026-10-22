@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - include:
+      file: tracking/201-create-runs.yml
+      relativeToChangelogFile: true
+  - include:
+      file: tracking/202-create-metrics.yml
+      relativeToChangelogFile: true
+  - include:
+      file: tracking/203-create-artifacts.yml
+      relativeToChangelogFile: true

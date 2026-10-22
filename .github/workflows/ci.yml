@@ -49,6 +49,9 @@ jobs:
       - name: Verify discovery, config and public API
         run: python3 scripts/smoke.py
 
+      - name: Verify tracking lifecycle and atomic batch writes
+        run: python3 scripts/tracking-smoke.py
+
       - name: Collect container logs
         if: always()
         run: docker compose --env-file .env.example logs --no-color > compose.log
