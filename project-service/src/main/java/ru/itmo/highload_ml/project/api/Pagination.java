@@ -20,7 +20,8 @@ public class Pagination {
     private final int maxPageSize;
 
     public Pagination(@Value("${app.pagination.max-page-size}") int maxPageSize) {
-        this.maxPageSize = maxPageSize;
+        if (maxPageSize < 1) throw new IllegalArgumentException("Maximum page size must be positive");
+        this.maxPageSize = Math.min(50, maxPageSize);
     }
 
     /**
