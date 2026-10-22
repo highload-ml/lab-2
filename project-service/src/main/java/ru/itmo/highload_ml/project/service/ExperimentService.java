@@ -1,8 +1,6 @@
 package ru.itmo.highload_ml.project.service;
 
-import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,25 +26,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ExperimentService {
 
-    private static final String UNIQUE_NAME_CONSTRAINT = "uk_experiments_project_name";
-
     private final ProjectRepository projectRepository;
     private final ExperimentRepository experimentRepository;
     private final TagRepository tagRepository;
     private final ExperimentMapper mapper;
 
-    /** The existence check, name check and insert run in one transaction; the unique index resolves races as 409. */
     @Transactional
     public ExperimentResponse create(UUID projectId, CreateExperimentRequest request) {
         Project project = findProject(projectId);
         requireNameFree(projectId, request.name());
-        try {
-            Experiment experiment = experimentRepository.saveAndFlush(
-                    new Experiment(project, request.name(), request.description()));
-            return mapper.toResponse(experiment);
-        } catch (DataIntegrityViolationException e) {
-            throw translateNameConflict(e, projectId, request.name());
-        }
+        Experiment experiment = experimentRepository.saveAndFlush(
+                new Experiment(project, request.name(), request.description()));
+        return mapper.toResponse(experiment);
     }
 
     public ExperimentResponse getById(UUID projectId, UUID experimentId) {
@@ -60,7 +51,7 @@ public class ExperimentService {
         Page<Experiment> page = tagId == null
                 ? experimentRepository.findByProject_IdAndActiveTrue(projectId, pageable)
                 : experimentRepository.findByProject_IdAndActiveTrueAndTags_Id(projectId, tagId, pageable);
-        // Mapping happens inside this transaction; @BatchSize loads lazy tags in batches.
+
         return page.map(mapper::toResponse);
     }
 
@@ -73,11 +64,7 @@ public class ExperimentService {
             experiment.setName(request.name());
         }
         experiment.setDescription(request.description());
-        try {
-            experimentRepository.flush();
-        } catch (DataIntegrityViolationException e) {
-            throw translateNameConflict(e, projectId, request.name());
-        }
+        experimentRepository.flush();
         return mapper.toResponse(experiment);
     }
 
@@ -133,22 +120,5 @@ public class ExperimentService {
         if (experimentRepository.existsByProject_IdAndName(projectId, name)) {
             throw new ExperimentNameAlreadyTakenException(projectId, name);
         }
-    }
-
-    private RuntimeException translateNameConflict(DataIntegrityViolationException e, UUID projectId, String name) {
-        if (hasConstraint(e, UNIQUE_NAME_CONSTRAINT)) {
-            return new ExperimentNameAlreadyTakenException(projectId, name);
-        }
-        return e;
-    }
-
-    private static boolean hasConstraint(Throwable error, String constraintName) {
-        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException violation
-                    && constraintName.equals(violation.getConstraintName())) {
-                return true;
-            }
-        }
-        return false;
     }
 }

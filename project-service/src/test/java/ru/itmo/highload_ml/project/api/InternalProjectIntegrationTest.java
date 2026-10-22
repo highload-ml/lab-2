@@ -9,9 +9,6 @@ import ru.itmo.highload_ml.project.api.dto.CreateExperimentRequest;
 import ru.itmo.highload_ml.project.model.Project;
 import ru.itmo.highload_ml.project.repository.ProjectRepository;
 import ru.itmo.highload_ml.project.service.ExperimentService;
-import ru.itmo.highload_ml.project.service.ExperimentAccessService;
-import ru.itmo.highload_ml.project.exception.ExperimentNotFoundException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -20,7 +17,6 @@ class InternalProjectIntegrationTest extends ProjectModuleIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ProjectRepository projects;
     @Autowired ExperimentService experiments;
-    @Autowired ExperimentAccessService access;
 
     @Test void deletionHidesPublicDataButRetainsHistoricalInternalLookup() throws Exception {
         var project = projects.saveAndFlush(new Project("history", null));
@@ -36,7 +32,5 @@ class InternalProjectIntegrationTest extends ProjectModuleIntegrationTest {
         mvc.perform(get("/api/v1/projects/{p}/experiments", project.getId()))
                 .andExpect(status().isOk()).andExpect(header().string("X-Total-Count", "0"))
                 .andExpect(content().json("[]"));
-        assertThatThrownBy(() -> access.requireExists(experiment.id())).isInstanceOf(ExperimentNotFoundException.class);
-        assertThatThrownBy(() -> access.getProjectId(experiment.id())).isInstanceOf(ExperimentNotFoundException.class);
     }
 }

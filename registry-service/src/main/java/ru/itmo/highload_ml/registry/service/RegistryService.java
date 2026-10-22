@@ -11,7 +11,6 @@ import ru.itmo.highload_ml.registry.client.ProjectClient;
 import ru.itmo.highload_ml.registry.client.TrackingClient;
 import ru.itmo.highload_ml.registry.exception.InvalidModelArtifactException;
 
-/** Blocking orchestration. Feign calls finish before the transactional JPA bean is invoked. */
 @Service
 @RequiredArgsConstructor
 public class RegistryService {
@@ -28,7 +27,7 @@ public class RegistryService {
         if (!"COMPLETED".equals(artifact.runStatus())) {
             throw new InvalidModelArtifactException(request.artifactId(), "source run must be COMPLETED");
         }
-        // Historical artifacts remain valid after an experiment is soft-deleted.
+
         if (!projectId.equals(projects.experiment(artifact.experimentId()).projectId())) {
             throw new InvalidModelArtifactException(request.artifactId(), "artifact belongs to another project");
         }

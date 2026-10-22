@@ -1,4 +1,2 @@
 rootProject.name = 'highload-ml-lab2'
 include 'project-service', 'tracking-service', 'registry-service', 'discovery-server', 'config-server', 'api-gateway'
-// Runnable reference for Developer 2; not part of the microservice deployment.
-if (providers.gradleProperty('includeLegacy').isPresent()) { include 'legacy-lab1' }

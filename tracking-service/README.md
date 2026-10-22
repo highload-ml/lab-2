@@ -9,8 +9,8 @@ entity has a null ID, so Spring Data inserts it rather than attempting an update
 ## API
 
 - `POST /api/v1/experiments/{experimentId}/runs` — create (`201`, `Location`).
-- `GET /api/v1/experiments/{experimentId}/runs?size=20&after=...` — JSON array;
-  `X-Has-Next` and optional `X-Next-Cursor` headers. Reads `size+1` rows without `COUNT`.
+- `GET /api/v1/experiments/{experimentId}/runs?page=0&size=20` — JSON array;
+  `X-Has-Next` indicates whether to request the next page. No `COUNT` query.
 - `GET /api/v1/runs/{runId}` — get run.
 - `POST /api/v1/runs/{runId}/{start|complete|fail}` — lifecycle commands.
 - `POST /api/v1/runs/{runId}/metrics` — log metric.
@@ -25,15 +25,13 @@ Metric/artifact lists use `page` and `size`, return JSON arrays and `X-Total-Cou
 Every read page has a hard limit of 50, even if MAX_PAGE_SIZE is larger. Batch writes
 allow up to 100 entries; this is independent of the read-page limit.
 
-Run scrolling uses bounded derived queries: equal timestamps with a smaller ID, then older
-timestamps. The result is limited before returning to the controller.
-
-Run scrolling intentionally changes the Lab 1 response from an envelope to an array;
-clients must read navigation headers instead of `items/nextCursor` in the body.
-The current demonstration uses the shared Swagger UI; no Python client is required.
+Run scrolling fetches the requested page and the first row of the next page to determine
+`X-Has-Next`. Both reads use `Pageable` with `createdAt DESC, id DESC`; at most 50 items
+are returned. No cursor token or total count is needed. Inserts between requests can shift
+page boundaries. The shared Swagger UI is the demonstration client.
 
 Errors use ProblemDetail: invalid input 400, missing resource 404, duplicate 409,
-invalid run state 422, unavailable project service 503. Unexpected error details stay
+invalid run state 422, unavailable project service 503. Storage duplicates return a generic 409 without constraint names. Unexpected error details stay
 in server logs.
 
 ## Transactions and concurrency
@@ -69,7 +67,7 @@ python3 scripts/tracking-smoke.py  # after starting the stack
 ```
 
 `check` includes PostgreSQL/Testcontainers tests and a 70% line-coverage gate.
-Tests cover HTTP contracts, validation, keyset pagination, scoped reads, batch rollback,
+Tests cover HTTP contracts, validation, page-based scrolling, scoped reads, batch rollback,
 sequential transitions, rejection of writes after completion and database constraints.
 Config Server and Eureka are disabled in tests; project access is mocked in database tests.
 No broker, file storage or model registry business logic is added in B1–B2.

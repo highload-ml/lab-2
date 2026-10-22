@@ -11,7 +11,6 @@ import ru.itmo.highload_ml.project.model.ProjectRole;
 
 import java.util.UUID;
 
-/** Service-to-service API. Gateway never routes this namespace. */
 @Hidden
 @RestController
 @RequestMapping("/internal")

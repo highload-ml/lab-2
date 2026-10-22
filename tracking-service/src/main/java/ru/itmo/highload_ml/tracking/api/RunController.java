@@ -4,6 +4,7 @@ import java.util.UUID;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
@@ -36,20 +37,16 @@ public class RunController {
                 .setLocation(URI.create("/api/v1/runs/" + created.id())));
     }
     @GetMapping("/experiments/{experimentId}/runs")
-    @Operation(summary = "Scroll runs without COUNT", description = "JSON array, at most 50 items. X-Has-Next and X-Next-Cursor contain navigation; pass cursor as after.")
-    @ApiResponse(responseCode = "200", description = "Run array and cursor headers")
-    @ApiResponse(responseCode = "400", description = "Invalid cursor or size")
-    public Flux<RunResponse> findAll(@PathVariable UUID experimentId, @RequestParam(required = false) String after,
+    @Operation(summary = "Scroll runs without COUNT", description = "JSON array, at most 50 items. Use page and size; X-Has-Next indicates another page. Total count is not calculated.")
+    @ApiResponse(responseCode = "200", description = "Run array and X-Has-Next header")
+    @ApiResponse(responseCode = "400", description = "Invalid page or size")
+    public Flux<RunResponse> findAll(@PathVariable UUID experimentId, @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "20") int size, ServerHttpResponse response) {
-        int limit = pagination.size(size);
-        RunCursor cursor = after == null ? null : RunCursorCodec.decode(after, experimentId);
-        return service.findAll(experimentId, cursor, limit + 1).collectList().flatMapMany(rows -> {
+        var pageable = pagination.page(page, size).withSort(Sort.by("createdAt", "id").descending());
+        int limit = pageable.getPageSize();
+        return service.findAll(experimentId, pageable).collectList().flatMapMany(rows -> {
             boolean hasNext = rows.size() > limit;
             response.getHeaders().set("X-Has-Next", Boolean.toString(hasNext));
-            if (hasNext) {
-                RunResponse last = rows.get(limit - 1);
-                response.getHeaders().set("X-Next-Cursor", RunCursorCodec.encode(experimentId, new RunCursor(last.createdAt(), last.id())));
-            }
             return Flux.fromIterable(rows.subList(0, Math.min(limit, rows.size())));
         });
     }

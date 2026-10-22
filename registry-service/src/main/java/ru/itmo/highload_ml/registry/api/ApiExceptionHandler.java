@@ -1,4 +1,6 @@
 package ru.itmo.highload_ml.registry.api;
+import java.sql.SQLException;
+import org.springframework.dao.DataIntegrityViolationException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.springframework.cloud.client.circuitbreaker.NoFallbackAvailableException;
@@ -21,7 +23,7 @@ public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     @ExceptionHandler(Exception.class)
     public ProblemDetail handle(Exception error, ServerWebExchange exchange) {
-        // Spring Cloud wraps both rejected calls and Feign failures when no fallback is supplied.
+
         while (error instanceof NoFallbackAvailableException && error.getCause() instanceof Exception cause) error = cause;
         HttpStatus status = switch (error) {
             case NotFoundException ignored -> HttpStatus.NOT_FOUND;
@@ -29,8 +31,13 @@ public class ApiExceptionHandler {
             case BusinessRuleViolationException ignored -> HttpStatus.UNPROCESSABLE_CONTENT;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
+        boolean duplicate = error instanceof DataIntegrityViolationException integrity
+                && integrity.getMostSpecificCause() instanceof SQLException sql && "23505".equals(sql.getSQLState());
+        if (duplicate) status = HttpStatus.CONFLICT;
         ProblemDetail problem;
-        if (error instanceof ErrorResponse response) {
+        if (duplicate) {
+            problem = ProblemDetail.forStatusAndDetail(status, "A record with these values already exists");
+        } else if (error instanceof ErrorResponse response) {
             exchange.getResponse().getHeaders().putAll(response.getHeaders());
             problem = response.getBody();
         } else if (error instanceof FeignException || error instanceof CallNotPermittedException) {

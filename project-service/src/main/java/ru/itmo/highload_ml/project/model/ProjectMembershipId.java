@@ -11,9 +11,6 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.util.UUID;
 
-/**
- * Value-based composite key: Lombok equals/hashCode is safe here, unlike on entities, because it holds only ids.
- */
 @Embeddable
 @Getter
 @EqualsAndHashCode

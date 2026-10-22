@@ -25,7 +25,7 @@ public class MetricService {
     public Mono<MetricResponse> log(UUID id, CreateMetricRequest request) {
         return logBatch(id, new CreateMetricsRequest(List.of(request))).single();
     }
-    /** The status check and entire batch share one transaction. */
+
     public Flux<MetricResponse> logBatch(UUID id, CreateMetricsRequest request) {
         return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
@@ -34,8 +34,7 @@ public class MetricService {
                     return Flux.fromIterable(request.metrics()).concatMap(metric -> metrics.save(
                             new Metric(id, metric.name(), metric.value(), metric.step())))
                             .map(mapper::toResponse).collectList();
-                })).single() // Buffer until commit; never stream a partially committed batch.
-                .onErrorMap(error -> SqlErrors.unique(error, "uk_metrics_run_name_step"), error -> new DuplicateMetricException(id))
+                })).single()
                 .flatMapMany(Flux::fromIterable);
     }
     public Mono<MetricResponse> getById(UUID runId, UUID metricId) {

@@ -4,8 +4,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,7 +15,6 @@ import ru.itmo.highload_ml.registry.model.ModelVersionState;
 import ru.itmo.highload_ml.registry.repository.ModelVersionRepository;
 import ru.itmo.highload_ml.registry.repository.RegistryCounterRepository;
 
-/** Blocking database operations only. Remote checks happen before entering this bean's proxy. */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -25,24 +22,13 @@ public class ModelVersionService {
     private final ModelVersionRepository versions;
     private final RegistryCounterRepository counter;
 
-    /** Counter increment and version insertion commit or roll back together. */
     @Transactional
     public ModelVersionResponse register(UUID projectId, UUID artifactId) {
         if (versions.existsByArtifactId(artifactId)) {
             throw new ModelArtifactAlreadyRegisteredException(artifactId);
         }
         long number = counter.allocate(projectId);
-        try {
-            return response(versions.saveAndFlush(new ModelVersion(projectId, artifactId, number)));
-        } catch (DataIntegrityViolationException error) {
-            for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-                if (cause instanceof ConstraintViolationException violation
-                        && "uk_model_versions_artifact".equals(violation.getConstraintName())) {
-                    throw new ModelArtifactAlreadyRegisteredException(artifactId);
-                }
-            }
-            throw error;
-        }
+        return response(versions.saveAndFlush(new ModelVersion(projectId, artifactId, number)));
     }
 
     public ModelVersionResponse getById(UUID projectId, UUID id) {
@@ -67,7 +53,6 @@ public class ModelVersionService {
         return response(version);
     }
 
-    /** Archive and promotion are atomic; the project counter also protects the first production slot. */
     @Transactional
     public ModelVersionResponse promote(UUID projectId, UUID id) {
         counter.lock(projectId);
@@ -77,7 +62,7 @@ public class ModelVersionService {
         }
         versions.findByProjectIdAndState(projectId, ModelVersionState.PRODUCTION).ifPresent(current -> {
             current.archive();
-            // Release the partial unique-index slot before promoting the next version.
+
             versions.flush();
         });
         target.promote(Instant.now().truncatedTo(ChronoUnit.MICROS));

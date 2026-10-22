@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** One PostgreSQL counter row serializes version allocation and promotion in each project. */
 @Repository
 @RequiredArgsConstructor
 public class RegistryCounterRepository {
@@ -22,7 +21,7 @@ public class RegistryCounterRepository {
     }
 
     public void lock(UUID projectId) {
-        // A registered version always has a counter. An empty project needs no lock.
+
         jdbc.queryForList("SELECT project_id FROM registry_version_counters WHERE project_id = ? FOR UPDATE",
                 UUID.class, projectId);
     }

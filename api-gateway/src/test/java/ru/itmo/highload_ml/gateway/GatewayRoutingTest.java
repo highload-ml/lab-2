@@ -26,7 +26,7 @@ class GatewayRoutingTest {
                                 .map(ignored -> "{\"status\":503,\"detail\":\"Dependency unavailable\"}"));
             }
             return response.header("Location", "/api/v1/created")
-                    .header("X-Total-Count", "17").header("X-Next-Cursor", "next")
+                    .header("X-Total-Count", "17")
                     .header("X-Has-Next", "true")
                     .sendString(Mono.just(name + ":" + request.uri()));
         }).bindNow();
@@ -47,7 +47,6 @@ class GatewayRoutingTest {
             client().get().uri(path).exchange().expectStatus().isOk()
                     .expectHeader().valueEquals("Location", "/api/v1/created")
                     .expectHeader().valueEquals("X-Total-Count", "17")
-                    .expectHeader().valueEquals("X-Next-Cursor", "next")
                     .expectHeader().valueEquals("X-Has-Next", "true")
                     .expectBody(String.class).isEqualTo("tracking:" + path);
         }

@@ -15,7 +15,7 @@ public class TrackingServiceApplication {
 
     @Bean
     CircuitBreakerNameResolver dependencyCircuitNames() {
-        // One breaker per dependency in this application, shared by that client's methods.
+
         return (clientName, target, method) -> clientName;
     }
 }

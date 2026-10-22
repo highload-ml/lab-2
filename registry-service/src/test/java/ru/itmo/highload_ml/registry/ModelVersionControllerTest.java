@@ -60,6 +60,18 @@ class ModelVersionControllerTest {
         assertThatThrownBy(() -> new RegistryPagination(0)).isInstanceOf(IllegalArgumentException.class);
         assertThat(new RegistryPagination(5).pageRequest(0, 100).getPageSize()).isEqualTo(5);
     }
+    @Test void uniqueStorageErrorsBecomeSafeConflicts() {
+        when(service.getById(project, version.id())).thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                "secret constraint", new java.sql.SQLException("secret SQL", "23505")));
+        http.get().uri(path + "/" + version.id()).exchange().expectStatus().isEqualTo(409)
+                .expectBody().jsonPath("$.detail").isEqualTo("A record with these values already exists");
+    }
+    @Test void otherStorageErrorsRemainServerErrors() {
+        when(service.getById(project, version.id())).thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                "secret constraint", new java.sql.SQLException("secret SQL", "23503")));
+        http.get().uri(path + "/" + version.id()).exchange().expectStatus().is5xxServerError()
+                .expectBody().jsonPath("$.detail").isEqualTo("An unexpected error occurred");
+    }
     @Test void hidesUnexpectedFailureDetails() {
         when(service.getById(project, version.id())).thenThrow(new IllegalStateException("secret DB credentials"));
         http.get().uri(path + "/" + version.id()).exchange().expectStatus().is5xxServerError()

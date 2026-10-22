@@ -1,4 +1,5 @@
 package ru.itmo.highload_ml.tracking.api;
+import org.springframework.dao.DuplicateKeyException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ public class ApiExceptionHandler {
         HttpStatus status = switch (error) {
             case NotFoundException ignored -> HttpStatus.NOT_FOUND;
             case ConflictException ignored -> HttpStatus.CONFLICT;
+            case DuplicateKeyException ignored -> HttpStatus.CONFLICT;
             case BusinessRuleViolationException ignored -> HttpStatus.UNPROCESSABLE_CONTENT;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
@@ -31,7 +33,8 @@ public class ApiExceptionHandler {
         } else {
             if (status == HttpStatus.INTERNAL_SERVER_ERROR) log.error("Unexpected tracking error", error);
             problem = ProblemDetail.forStatusAndDetail(status, status == HttpStatus.INTERNAL_SERVER_ERROR
-                    ? "An unexpected error occurred" : error.getMessage());
+                    ? "An unexpected error occurred" : error instanceof DuplicateKeyException
+                            ? "A record with these values already exists" : error.getMessage());
         }
         if (error instanceof WebExchangeBindException validation) {
             Map<String, List<String>> fields = new LinkedHashMap<>();

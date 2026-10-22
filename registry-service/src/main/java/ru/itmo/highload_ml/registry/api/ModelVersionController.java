@@ -89,7 +89,6 @@ public class ModelVersionController {
         return blocking(() -> service.promote(projectId, versionId, request.userId()));
     }
 
-    /** The sole Reactor boundary: Feign and JPA run on a worker, including the transactional proxy call. */
     private <T> Mono<T> blocking(Callable<T> action) {
         return Mono.fromCallable(action).subscribeOn(Schedulers.boundedElastic());
     }
