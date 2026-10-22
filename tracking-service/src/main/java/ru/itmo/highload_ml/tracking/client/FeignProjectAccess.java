@@ -1,6 +1,7 @@
 package ru.itmo.highload_ml.tracking.client;
 import java.util.UUID;
 import feign.FeignException;
+import org.springframework.cloud.client.circuitbreaker.NoFallbackAvailableException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.http.HttpStatus;
@@ -19,16 +20,21 @@ public class FeignProjectAccess implements ProjectAccess {
     public Mono<Void> requireAuthor(UUID experimentId, UUID authorId) {
         return experiment(experimentId).flatMap(experiment -> Mono.fromCallable(
                 () -> client.membership(experiment.projectId(), authorId))
-                .subscribeOn(Schedulers.boundedElastic())).then().onErrorMap(FeignException.class, this::translate);
+                .subscribeOn(Schedulers.boundedElastic())).then().onErrorMap(this::isDependencyFailure, this::translate);
     }
     private Mono<ProjectClient.ExperimentDetails> experiment(UUID id) {
         return Mono.fromCallable(() -> client.experiment(id)).subscribeOn(Schedulers.boundedElastic())
                 .flatMap(experiment -> experiment.active() ? Mono.just(experiment)
                         : Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Experiment not found")))
-                .onErrorMap(FeignException.class, this::translate);
+                .onErrorMap(this::isDependencyFailure, this::translate);
     }
-    private RuntimeException translate(FeignException error) {
-        return switch (error.status()) {
+    private boolean isDependencyFailure(Throwable error) {
+        return error instanceof FeignException || error instanceof NoFallbackAvailableException;
+    }
+    private RuntimeException translate(Throwable error) {
+        while (error instanceof NoFallbackAvailableException && error.getCause() != null) error = error.getCause();
+        int status = error instanceof FeignException feign ? feign.status() : -1;
+        return switch (status) {
             case 404 -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project or experiment not found");
             case 422 -> new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "User is not a project member");
             default -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Project service is unavailable");

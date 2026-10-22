@@ -5,6 +5,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.boot:spring-boot-http-converter'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
@@ -24,3 +25,9 @@ jacocoTestCoverageVerification {
     violationRules { rule { limit { counter = 'LINE'; value = 'COVEREDRATIO'; minimum = 0.70 } } }
 }
 check.dependsOn jacocoTestCoverageVerification
+
+
+// Tests consume the production dependency policy without a Config Server or working-directory assumptions.
+processTestResources {
+    from(rootProject.file('config/application.yml')) { rename { 'dependency-policy.yml' } }
+}

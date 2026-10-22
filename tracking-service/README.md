@@ -50,7 +50,7 @@ A minimal Feign adapter calls the existing project internal API. Blocking calls 
 `boundedElastic`, before local database writes; it checks experiment `active` and author
 membership, fails closed, and uses Eureka or optional `app.project-service.url`.
 Boot HTTP converters are explicitly included for Feign JSON decoding in WebFlux.
-Feign timeouts are 2s connect / 5s read. Circuit Breaker remains B4.
+Feign timeouts are 2s connect / 5s read. Circuit Breaker is enabled through Spring Cloud + Resilience4j; policy and explanations are in [B4](../README.md#b4-отказы-зависимостей).
 The HTTP check and local insert are not a distributed transaction: a concurrent soft
 removal may happen after the check. Historical experiment records remain available.
 

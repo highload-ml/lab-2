@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: "classpath:dependency-policy.yml"
   application:
     name: registry-service
   cloud:

@@ -7,6 +7,7 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
     // Feign's blocking JSON decoder requires Boot HTTP converters even in a WebFlux app.
     implementation 'org.springframework.boot:spring-boot-http-converter'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
@@ -26,3 +27,9 @@ jacocoTestCoverageVerification {
     violationRules { rule { limit { counter = 'LINE'; value = 'COVEREDRATIO'; minimum = 0.70 } } }
 }
 check.dependsOn jacocoTestCoverageVerification
+
+
+// Tests consume the production dependency policy without a Config Server or working-directory assumptions.
+processTestResources {
+    from(rootProject.file('config/application.yml')) { rename { 'dependency-policy.yml' } }
+}
