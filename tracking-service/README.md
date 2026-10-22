@@ -1,7 +1,8 @@
 # Tracking service — B1–B2
 
 WebFlux + Spring Data R2DBC, PostgreSQL and Liquibase. Entities use Lombok; repositories
-extend `ReactiveCrudRepository`, SQL is declared with `@Query`. No EntityTemplate or JPA.
+extend `ReactiveCrudRepository`. Run queries are derived from method names with `Pageable`;
+metric/artifact page queries use `@Query`. No EntityTemplate or JPA.
 Liquibase uses JDBC only during startup. PostgreSQL generates UUID primary keys; a new
 entity has a null ID, so Spring Data inserts it rather than attempting an update.
 
@@ -24,6 +25,9 @@ Metric/artifact lists use `page` and `size`, return JSON arrays and `X-Total-Cou
 Every read page has a hard limit of 50, even if MAX_PAGE_SIZE is larger. Batch writes
 allow up to 100 entries; this is independent of the read-page limit.
 
+Run scrolling uses bounded derived queries: equal timestamps with a smaller ID, then older
+timestamps. The result is limited before returning to the controller.
+
 Run scrolling intentionally changes the Lab 1 response from an envelope to an array;
 clients must read navigation headers instead of `items/nextCursor` in the body.
 The current demonstration uses the shared Swagger UI; no Python client is required.
@@ -34,16 +38,17 @@ in server logs.
 
 ## Transactions and concurrency
 
-All writes that depend on run status first `SELECT ... FOR UPDATE` the same run row.
-The lock is held until the metric batch, artifact insert or state change commits.
-This serializes completion with metric/artifact registration. Unique/check constraints
-and local foreign keys provide the final database guard. References to projects,
+Status checks and writes run in local transactions. Batch inserts roll back together.
+Run reads use ordinary `findById`, without pessimistic locks: concurrent completion and
+metric/artifact writes are not serialized, and concurrent transitions can overwrite each other.
+This is a simplified implementation for the lab. Unique/check constraints and local foreign
+keys still guard database integrity. References to projects,
 experiments and authors are UUIDs without cross-service foreign keys.
 
 `TransactionalOperator.execute(...).single()` withholds the result until commit.
 Batch writes use sequential `concatMap`, collect results inside the transaction and
 expose them as a Flux only after commit. An insert or commit failure emits no partial
-success response. Do not remove this buffering or move the lock outside the transaction.
+success response. Keep this buffering inside the transaction.
 
 ## Project integration
 
@@ -65,6 +70,6 @@ python3 scripts/tracking-smoke.py  # after starting the stack
 
 `check` includes PostgreSQL/Testcontainers tests and a 70% line-coverage gate.
 Tests cover HTTP contracts, validation, keyset pagination, scoped reads, batch rollback,
-concurrent transitions, completion versus batch logging and database constraints.
+sequential transitions, rejection of writes after completion and database constraints.
 Config Server and Eureka are disabled in tests; project access is mocked in database tests.
 No broker, file storage or model registry business logic is added in B1–B2.

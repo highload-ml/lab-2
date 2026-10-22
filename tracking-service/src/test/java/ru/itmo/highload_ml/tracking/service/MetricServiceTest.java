@@ -29,22 +29,22 @@ class MetricServiceTest extends ServiceTestSupport {
     @BeforeEach void setup() { service = new MetricService(runs, metrics, new MetricMapper(), transactions, runService); }
     Run run(RunStatus status) { Run run = new Run(UUID.randomUUID(), UUID.randomUUID(), "run"); run.setId(id); run.setStatus(status); return run; }
     @Test void rejectsNonRunningRun() {
-        when(runs.findLocked(id)).thenReturn(Mono.just(run(RunStatus.COMPLETED)));
+        when(runs.findById(id)).thenReturn(Mono.just(run(RunStatus.COMPLETED)));
         StepVerifier.create(service.log(id, request)).expectError(RunNotRunningException.class).verify();
         verifyNoInteractions(metrics);
     }
     @Test void rejectsUnknownRun() {
-        when(runs.findLocked(id)).thenReturn(Mono.empty());
+        when(runs.findById(id)).thenReturn(Mono.empty());
         StepVerifier.create(service.log(id, request)).expectError(RunNotFoundException.class).verify();
     }
     @Test void returnsSavedBatch() {
-        when(runs.findLocked(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
+        when(runs.findById(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
         when(metrics.save(any())).thenAnswer(call -> { Metric metric = call.getArgument(0); metric.setId(UUID.randomUUID()); return Mono.just(metric); });
         StepVerifier.create(service.logBatch(id, new CreateMetricsRequest(List.of(request, new CreateMetricRequest("loss", BigDecimal.TEN, 1L)))))
                 .assertNext(metric -> assertThat(metric.step()).isZero()).assertNext(metric -> assertThat(metric.step()).isEqualTo(1)).verifyComplete();
     }
     @Test void doesNotEmitPartialBatchOnInsertFailure() {
-        when(runs.findLocked(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
+        when(runs.findById(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
         when(metrics.save(any())).thenAnswer(call -> {
             Metric metric = call.getArgument(0);
             return metric.getStep() == 0 ? Mono.just(metric) : Mono.error(new IllegalStateException("DB failure"));

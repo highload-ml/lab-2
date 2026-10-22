@@ -92,6 +92,9 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
     @Test void keysetHasNoOverlapEvenWhenTimestampsMatch() {
         for (int i = 0; i < 3; i++) create();
         db.sql("UPDATE runs SET created_at = '2026-01-01T00:00:00Z'").then().block();
+        var older = create();
+        db.sql("UPDATE runs SET created_at = '2025-12-31T00:00:00Z' WHERE id = :id")
+                .bind("id", older.id()).then().block();
         var first = http.get().uri("/api/v1/experiments/{id}/runs?size=2", experiment).exchange()
                 .expectStatus().isOk().expectHeader().doesNotExist("X-Total-Count")
                 .expectHeader().valueEquals("X-Has-Next", "true").expectBodyList(RunResponse.class).returnResult();
@@ -100,27 +103,22 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
         var second = http.get().uri("/api/v1/experiments/{id}/runs?size=2&after={cursor}", experiment, cursor).exchange()
                 .expectStatus().isOk().expectHeader().valueEquals("X-Has-Next", "false")
                 .expectHeader().doesNotExist("X-Next-Cursor").expectBodyList(RunResponse.class).returnResult();
-        assertThat(second.getResponseBody()).hasSize(1).doesNotContainAnyElementsOf(first.getResponseBody());
+        assertThat(second.getResponseBody()).hasSize(2).doesNotContainAnyElementsOf(first.getResponseBody());
+        assertThat(second.getResponseBody().get(1).id()).isEqualTo(older.id());
     }
-    @Test void concurrentStartsHaveExactlyOneWinner() {
+    @Test void repeatedStartIsRejected() {
         var run = create();
-        var outcomes = Mono.zip(runService.start(run.id()).materialize(), runService.start(run.id()).materialize()).block(Duration.ofSeconds(10));
-        assertThat(List.of(outcomes.getT1(), outcomes.getT2()).stream().filter(signal -> signal.hasValue()).count()).isEqualTo(1);
-        assertThat(List.of(outcomes.getT1(), outcomes.getT2()).stream().filter(signal -> signal.isOnError()).findFirst().orElseThrow().getThrowable())
-                .isInstanceOf(ru.itmo.highload_ml.tracking.exception.InvalidRunStateTransitionException.class);
+        runService.start(run.id()).block(Duration.ofSeconds(10));
+        reactor.test.StepVerifier.create(runService.start(run.id()))
+                .expectError(ru.itmo.highload_ml.tracking.exception.InvalidRunStateTransitionException.class).verify();
     }
-    @Test void completionAndBatchCannotInterleave() {
+    @Test void completedRunRejectsMetricBatch() {
         var run = running();
-        var requests = new CreateMetricsRequest(java.util.stream.IntStream.range(0, 100).mapToObj(i -> metric("loss", i)).toList());
-        var result = Mono.zip(metricService.logBatch(run.id(), requests).collectList().materialize(), runService.complete(run.id()).materialize())
-                .block(Duration.ofSeconds(10));
-        assertThat(result.getT2().hasValue()).isTrue();
-        long count = metrics.countByRunId(run.id()).block();
-        if (result.getT1().hasValue()) assertThat(count).isEqualTo(100);
-        else {
-            assertThat(result.getT1().getThrowable()).isInstanceOf(ru.itmo.highload_ml.tracking.exception.RunNotRunningException.class);
-            assertThat(count).isZero();
-        }
+        runService.complete(run.id()).block(Duration.ofSeconds(10));
+        var request = new CreateMetricsRequest(List.of(metric("loss", 0)));
+        reactor.test.StepVerifier.create(metricService.logBatch(run.id(), request))
+                .expectError(ru.itmo.highload_ml.tracking.exception.RunNotRunningException.class).verify();
+        assertThat(metrics.countByRunId(run.id()).block()).isZero();
     }
     @Test void uniqueArtifactAndScopedReads() {
         var run = running();

@@ -27,16 +27,16 @@ class ArtifactServiceTest extends ServiceTestSupport {
     @BeforeEach void setup() { service = new ArtifactService(runs, artifacts, new ArtifactMapper(), transactions, runService); }
     Run run(RunStatus status) { Run run = new Run(UUID.randomUUID(), UUID.randomUUID(), "run"); run.setId(id); run.setStatus(status); return run; }
     @Test void rejectsNonRunningRun() {
-        when(runs.findLocked(id)).thenReturn(Mono.just(run(RunStatus.CREATED)));
+        when(runs.findById(id)).thenReturn(Mono.just(run(RunStatus.CREATED)));
         StepVerifier.create(service.register(id, request)).expectError(RunNotAcceptingArtifactsException.class).verify();
         verifyNoInteractions(artifacts);
     }
     @Test void rejectsUnknownRun() {
-        when(runs.findLocked(id)).thenReturn(Mono.empty());
+        when(runs.findById(id)).thenReturn(Mono.empty());
         StepVerifier.create(service.register(id, request)).expectError(RunNotFoundException.class).verify();
     }
     @Test void registersMetadata() {
-        when(runs.findLocked(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
+        when(runs.findById(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
         when(artifacts.save(any())).thenAnswer(call -> { Artifact a = call.getArgument(0); a.setId(UUID.randomUUID()); return Mono.just(a); });
         StepVerifier.create(service.register(id, request)).assertNext(a -> {
             assertThat(a.type()).isEqualTo(ArtifactType.MODEL); assertThat(a.path()).isEqualTo("models/a.bin");

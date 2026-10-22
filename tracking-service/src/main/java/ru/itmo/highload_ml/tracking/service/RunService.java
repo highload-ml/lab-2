@@ -4,6 +4,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,17 +33,24 @@ public class RunService {
         return runs.findById(id).switchIfEmpty(Mono.error(new RunNotFoundException(id)));
     }
     public Flux<RunResponse> findAll(UUID experimentId, RunCursor cursor, int limit) {
-        return projects.requireActiveExperiment(experimentId).thenMany(Flux.defer(() -> cursor == null
-                ? runs.findFirstBatch(experimentId, limit)
-                : runs.findBefore(experimentId, cursor.createdAt(), cursor.id(), limit))).map(mapper::toResponse);
+        var page = PageRequest.of(0, limit);
+        return projects.requireActiveExperiment(experimentId).thenMany(Flux.defer(() -> {
+            if (cursor == null) return runs.findByExperimentIdOrderByCreatedAtDescIdDesc(experimentId, page);
+            // Equal timestamps come first, then older runs. Both queries are bounded.
+            return Flux.concat(
+                    runs.findByExperimentIdAndCreatedAtAndIdLessThanOrderByIdDesc(
+                            experimentId, cursor.createdAt(), cursor.id(), page),
+                    runs.findByExperimentIdAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                            experimentId, cursor.createdAt(), page)).take(limit);
+        })).map(mapper::toResponse);
     }
+
     public Mono<RunResponse> start(UUID id) { return transition(id, RunStatus.RUNNING); }
     public Mono<RunResponse> complete(UUID id) { return transition(id, RunStatus.COMPLETED); }
     public Mono<RunResponse> fail(UUID id) { return transition(id, RunStatus.FAILED); }
 
-    /** All writers lock the same run row: a run cannot finish during metric/artifact insertion. */
     private Mono<RunResponse> transition(UUID id, RunStatus target) {
-        return transactions.execute(status -> runs.findLocked(id)
+        return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
                 .flatMap(run -> {
                     RunStatus expected = target == RunStatus.RUNNING ? RunStatus.CREATED : RunStatus.RUNNING;

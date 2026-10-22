@@ -20,9 +20,9 @@ public class ArtifactService {
     private final TransactionalOperator transactions;
     private final RunService runService;
 
-    /** Status validation and insertion are atomic with respect to run completion. */
+    /** Validate status and insert metadata in one transaction. */
     public Mono<ArtifactResponse> register(UUID id, CreateArtifactRequest request) {
-        return transactions.execute(status -> runs.findLocked(id)
+        return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
                 .flatMap(run -> run.getStatus() == RunStatus.RUNNING
                         ? artifacts.save(new Artifact(id, request.name(), request.type(), request.path(), request.sizeBytes()))

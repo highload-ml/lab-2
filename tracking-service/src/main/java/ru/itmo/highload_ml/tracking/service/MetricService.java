@@ -24,9 +24,9 @@ public class MetricService {
     public Mono<MetricResponse> log(UUID id, CreateMetricRequest request) {
         return logBatch(id, new CreateMetricsRequest(List.of(request))).single();
     }
-    /** The run lock, status check and entire batch share one connection and transaction. */
+    /** The status check and entire batch share one transaction. */
     public Flux<MetricResponse> logBatch(UUID id, CreateMetricsRequest request) {
-        return transactions.execute(status -> runs.findLocked(id)
+        return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
                 .flatMap(run -> {
                     if (run.getStatus() != RunStatus.RUNNING) return Mono.error(new RunNotRunningException(id, run.getStatus()));
