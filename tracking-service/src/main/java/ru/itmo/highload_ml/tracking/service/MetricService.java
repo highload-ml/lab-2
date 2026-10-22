@@ -3,6 +3,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -42,7 +43,7 @@ public class MetricService {
                 .switchIfEmpty(Mono.error(new MetricNotFoundException(metricId))).map(mapper::toResponse);
     }
     public Mono<Long> count(UUID runId) { return runService.requireRun(runId).then(metrics.countByRunId(runId)); }
-    public Flux<MetricResponse> findAll(UUID runId, int size, long offset) {
-        return runService.requireRun(runId).thenMany(metrics.findPage(runId, size, offset)).map(mapper::toResponse);
+    public Flux<MetricResponse> findAll(UUID runId, Pageable pageable) {
+        return runService.requireRun(runId).thenMany(metrics.findByRunId(runId, pageable)).map(mapper::toResponse);
     }
 }

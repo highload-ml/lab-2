@@ -1,5 +1,7 @@
 package ru.itmo.highload_ml.tracking.service;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,10 +60,11 @@ class ArtifactServiceTest extends ServiceTestSupport {
         StepVerifier.create(service.getById(id, artifactId)).expectError(ArtifactNotFoundException.class).verify();
     }
     @Test void listsAndCounts() {
+        var page = PageRequest.of(1, 1, Sort.by("createdAt", "id"));
         when(runService.requireRun(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
         when(artifacts.countByRunId(id)).thenReturn(Mono.just(2L));
-        when(artifacts.findPage(id, 1, 1L)).thenReturn(Flux.just(new Artifact(id, "model", ArtifactType.MODEL, "a", 1)));
+        when(artifacts.findByRunId(id, page)).thenReturn(Flux.just(new Artifact(id, "model", ArtifactType.MODEL, "a", 1)));
         StepVerifier.create(service.count(id)).expectNext(2L).verifyComplete();
-        StepVerifier.create(service.findAll(id, 1, 1)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(service.findAll(id, page)).expectNextCount(1).verifyComplete();
     }
 }

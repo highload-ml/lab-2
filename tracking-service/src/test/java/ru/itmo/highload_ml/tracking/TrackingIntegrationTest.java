@@ -85,9 +85,11 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
         http.post().uri("/api/v1/runs/{id}/metrics/batch", run.id()).bodyValue(new CreateMetricsRequest(batch))
                 .exchange().expectStatus().isCreated().expectBody().jsonPath("$.length()").isEqualTo(60);
         http.get().uri("/api/v1/runs/{id}/metrics?size=100", run.id()).exchange().expectStatus().isOk()
-                .expectHeader().valueEquals("X-Total-Count", "60").expectBody().jsonPath("$.length()").isEqualTo(50);
+                .expectHeader().valueEquals("X-Total-Count", "60").expectBody().jsonPath("$.length()").isEqualTo(50)
+                .jsonPath("$[0].step").isEqualTo(0).jsonPath("$[49].step").isEqualTo(49);
         http.get().uri("/api/v1/runs/{id}/metrics?size=50&page=1", run.id()).exchange().expectStatus().isOk()
-                .expectBody().jsonPath("$.length()").isEqualTo(10);
+                .expectBody().jsonPath("$.length()").isEqualTo(10)
+                .jsonPath("$[0].step").isEqualTo(50).jsonPath("$[9].step").isEqualTo(59);
     }
     @Test void keysetHasNoOverlapEvenWhenTimestampsMatch() {
         for (int i = 0; i < 3; i++) create();
@@ -125,6 +127,12 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
         var request = new CreateArtifactRequest("model", ArtifactType.MODEL, "a", 1L);
         var saved = artifactService.register(run.id(), request).block();
         http.post().uri("/api/v1/runs/{id}/artifacts", run.id()).bodyValue(request).exchange().expectStatus().isEqualTo(409);
+        artifactService.register(run.id(), new CreateArtifactRequest("second-model", ArtifactType.MODEL, "b", 2L)).block();
+        http.get().uri("/api/v1/runs/{id}/artifacts?size=1&page=0", run.id()).exchange().expectStatus().isOk()
+                .expectHeader().valueEquals("X-Total-Count", "2").expectBody().jsonPath("$.length()").isEqualTo(1)
+                .jsonPath("$[0].name").isEqualTo("model");
+        http.get().uri("/api/v1/runs/{id}/artifacts?size=1&page=1", run.id()).exchange().expectStatus().isOk()
+                .expectBody().jsonPath("$.length()").isEqualTo(1).jsonPath("$[0].name").isEqualTo("second-model");
         var other = create();
         http.get().uri("/api/v1/runs/{r}/artifacts/{a}", other.id(), saved.id()).exchange().expectStatus().isNotFound();
         http.get().uri("/internal/artifacts/{id}", UUID.randomUUID()).exchange().expectStatus().isNotFound();

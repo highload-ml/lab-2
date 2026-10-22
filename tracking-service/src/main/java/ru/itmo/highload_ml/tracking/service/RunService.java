@@ -5,6 +5,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,14 +34,14 @@ public class RunService {
         return runs.findById(id).switchIfEmpty(Mono.error(new RunNotFoundException(id)));
     }
     public Flux<RunResponse> findAll(UUID experimentId, RunCursor cursor, int limit) {
-        var page = PageRequest.of(0, limit);
+        var page = PageRequest.of(0, limit, Sort.by("createdAt", "id").descending());
         return projects.requireActiveExperiment(experimentId).thenMany(Flux.defer(() -> {
-            if (cursor == null) return runs.findByExperimentIdOrderByCreatedAtDescIdDesc(experimentId, page);
+            if (cursor == null) return runs.findByExperimentId(experimentId, page);
             // Equal timestamps come first, then older runs. Both queries are bounded.
             return Flux.concat(
-                    runs.findByExperimentIdAndCreatedAtAndIdLessThanOrderByIdDesc(
+                    runs.findByExperimentIdAndCreatedAtAndIdLessThan(
                             experimentId, cursor.createdAt(), cursor.id(), page),
-                    runs.findByExperimentIdAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                    runs.findByExperimentIdAndCreatedAtLessThan(
                             experimentId, cursor.createdAt(), page)).take(limit);
         })).map(mapper::toResponse);
     }

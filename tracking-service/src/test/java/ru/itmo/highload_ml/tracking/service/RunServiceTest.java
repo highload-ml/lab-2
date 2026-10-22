@@ -1,6 +1,7 @@
 package ru.itmo.highload_ml.tracking.service;
 import java.time.Instant;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,18 +74,20 @@ class RunServiceTest extends ServiceTestSupport {
                 .assertNext(run -> { assertThat(run.id()).isEqualTo(id); assertThat(run.status()).isEqualTo(RunStatus.CREATED); }).verifyComplete();
     }
     @Test void scrollUsesKeysetPosition() {
+        var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
         Run run = new Run(experimentId, UUID.randomUUID(), "run"); run.setId(id);
         var cursor = new RunCursor(Instant.now(), id);
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
-        when(runs.findByExperimentIdAndCreatedAtAndIdLessThanOrderByIdDesc(
-                experimentId, cursor.createdAt(), id, PageRequest.of(0, 3))).thenReturn(Flux.just(run));
-        when(runs.findByExperimentIdAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
-                experimentId, cursor.createdAt(), PageRequest.of(0, 3))).thenReturn(Flux.empty());
+        when(runs.findByExperimentIdAndCreatedAtAndIdLessThan(
+                experimentId, cursor.createdAt(), id, page)).thenReturn(Flux.just(run));
+        when(runs.findByExperimentIdAndCreatedAtLessThan(
+                experimentId, cursor.createdAt(), page)).thenReturn(Flux.empty());
         StepVerifier.create(service.findAll(experimentId, cursor, 3)).expectNextCount(1).verifyComplete();
     }
     @Test void firstScrollUsesBoundedQuery() {
+        var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
-        when(runs.findByExperimentIdOrderByCreatedAtDescIdDesc(experimentId, PageRequest.of(0, 3))).thenReturn(Flux.empty());
+        when(runs.findByExperimentId(experimentId, page)).thenReturn(Flux.empty());
         StepVerifier.create(service.findAll(experimentId, null, 3)).verifyComplete();
     }
 }

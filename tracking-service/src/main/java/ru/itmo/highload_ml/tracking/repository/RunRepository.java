@@ -9,11 +9,11 @@ import ru.itmo.highload_ml.tracking.model.Run;
 
 @Repository
 public interface RunRepository extends ReactiveCrudRepository<Run, UUID> {
-    Flux<Run> findByExperimentIdOrderByCreatedAtDescIdDesc(UUID experimentId, Pageable page);
+    Flux<Run> findByExperimentId(UUID experimentId, Pageable page);
 
-    Flux<Run> findByExperimentIdAndCreatedAtAndIdLessThanOrderByIdDesc(
+    Flux<Run> findByExperimentIdAndCreatedAtAndIdLessThan(
             UUID experimentId, Instant createdAt, UUID id, Pageable page);
 
-    Flux<Run> findByExperimentIdAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+    Flux<Run> findByExperimentIdAndCreatedAtLessThan(
             UUID experimentId, Instant createdAt, Pageable page);
 }

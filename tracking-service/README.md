@@ -1,8 +1,8 @@
 # Tracking service — B1–B2
 
 WebFlux + Spring Data R2DBC, PostgreSQL and Liquibase. Entities use Lombok; repositories
-extend `ReactiveCrudRepository`. Run queries are derived from method names with `Pageable`;
-metric/artifact page queries use `@Query`. No EntityTemplate or JPA.
+extend `ReactiveCrudRepository`. Queries are derived from method names; pagination and
+sorting are passed via `Pageable`. No `@Query`, EntityTemplate or JPA.
 Liquibase uses JDBC only during startup. PostgreSQL generates UUID primary keys; a new
 entity has a null ID, so Spring Data inserts it rather than attempting an update.
 

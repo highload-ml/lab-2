@@ -2,6 +2,7 @@ package ru.itmo.highload_ml.tracking.service;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -36,8 +37,8 @@ public class ArtifactService {
                 .switchIfEmpty(Mono.error(new ArtifactNotFoundException(artifactId))).map(mapper::toResponse);
     }
     public Mono<Long> count(UUID runId) { return runService.requireRun(runId).then(artifacts.countByRunId(runId)); }
-    public Flux<ArtifactResponse> findAll(UUID runId, int size, long offset) {
-        return runService.requireRun(runId).thenMany(artifacts.findPage(runId, size, offset)).map(mapper::toResponse);
+    public Flux<ArtifactResponse> findAll(UUID runId, Pageable pageable) {
+        return runService.requireRun(runId).thenMany(artifacts.findByRunId(runId, pageable)).map(mapper::toResponse);
     }
     public Mono<ArtifactDetails> details(UUID id) {
         return artifacts.findById(id).switchIfEmpty(Mono.error(new ArtifactNotFoundException(id)))

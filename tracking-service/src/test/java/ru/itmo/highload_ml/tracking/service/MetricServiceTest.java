@@ -2,6 +2,8 @@ package ru.itmo.highload_ml.tracking.service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,10 +61,11 @@ class MetricServiceTest extends ServiceTestSupport {
         StepVerifier.create(service.getById(id, metricId)).expectError(MetricNotFoundException.class).verify();
     }
     @Test void listsAndCounts() {
+        var page = PageRequest.of(1, 2, Sort.by("recordedAt", "id"));
         when(runService.requireRun(id)).thenReturn(Mono.just(run(RunStatus.RUNNING)));
         when(metrics.countByRunId(id)).thenReturn(Mono.just(4L));
-        when(metrics.findPage(id, 2, 2L)).thenReturn(Flux.just(new Metric(id, "loss", BigDecimal.ONE, 2)));
+        when(metrics.findByRunId(id, page)).thenReturn(Flux.just(new Metric(id, "loss", BigDecimal.ONE, 2)));
         StepVerifier.create(service.count(id)).expectNext(4L).verifyComplete();
-        StepVerifier.create(service.findAll(id, 2, 2)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(service.findAll(id, page)).expectNextCount(1).verifyComplete();
     }
 }
