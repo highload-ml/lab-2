@@ -52,6 +52,9 @@ jobs:
       - name: Verify tracking lifecycle and atomic batch writes
         run: python3 scripts/tracking-smoke.py
 
+      - name: Verify registry versioning and production promotion
+        run: python3 scripts/registry-smoke.py
+
       - name: Collect container logs
         if: always()
         run: docker compose --env-file .env.example logs --no-color > compose.log
