@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: registry-service
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://localhost:5432/registry_test
+    username: test
+    password: test
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yml
+eureka:
+  client:
+    enabled: false
+app:
+  project-service:
+    url: http://localhost:1
+  tracking-service:
+    url: http://localhost:1
+  pagination:
+    max-page-size: 50
+springdoc:
+  paths-to-match: /api/v1/**
