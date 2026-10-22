@@ -19,11 +19,17 @@ class GatewayRoutingTest {
     @LocalServerPort int port;
 
     static DisposableServer upstream(String name) {
-        return HttpServer.create().port(0).handle((request, response) -> response
-                .header("Location", "/api/v1/created")
-                .header("X-Total-Count", "17").header("X-Next-Cursor", "next")
-                .header("X-Has-Next", "true")
-                .sendString(Mono.just(name + ":" + request.uri()))).bindNow();
+        return HttpServer.create().port(0).handle((request, response) -> {
+            if (request.uri().equals("/api/v1/runs/slow-dependency")) {
+                return response.status(503).header("Content-Type", "application/problem+json")
+                        .sendString(Mono.delay(java.time.Duration.ofSeconds(6))
+                                .map(ignored -> "{\"status\":503,\"detail\":\"Dependency unavailable\"}"));
+            }
+            return response.header("Location", "/api/v1/created")
+                    .header("X-Total-Count", "17").header("X-Next-Cursor", "next")
+                    .header("X-Has-Next", "true")
+                    .sendString(Mono.just(name + ":" + request.uri()));
+        }).bindNow();
     }
     @DynamicPropertySource static void discovery(DynamicPropertyRegistry properties) {
         properties.add("spring.cloud.discovery.client.simple.instances.project-service[0].uri", () -> "http://localhost:" + project.port());
@@ -67,4 +73,10 @@ class GatewayRoutingTest {
             client().get().uri(path).exchange().expectStatus().isNotFound();
         }
     }
+    @Test void preservesDependency503InsteadOfTimingOutAtFiveSeconds() {
+        client().mutate().responseTimeout(java.time.Duration.ofSeconds(10)).build()
+                .get().uri("/api/v1/runs/slow-dependency").exchange().expectStatus().isEqualTo(503)
+                .expectBody().jsonPath("$.status").isEqualTo(503);
+    }
+
 }

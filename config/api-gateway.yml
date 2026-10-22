@@ -11,7 +11,8 @@ spring:
           trusted-proxies: ".*"
           httpclient:
             connect-timeout: 2000
-            response-timeout: 5s
+            # Registry can make three sequential Feign calls (each up to 2s connect + 5s read).
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:25s}
           routes:
             - id: registry-api
               uri: lb://registry-service

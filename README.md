@@ -3,7 +3,8 @@
 Реализована область разработчика 1 из командного плана: bootstrap, project-service,
 внутренний API, Eureka, Config Server, Gateway и окружение. Tracking реализован на WebFlux + R2DBC (B1–B2), см. [tracking-service/README.md](tracking-service/README.md).
 Registry реализован на WebFlux + JPA (B3), см. [registry-service/README.md](registry-service/README.md).
-Feign-клиенты, таймауты и Circuit Breaker реализованы (B4). Адаптация Python-клиента остаётся B5.
+Feign-клиенты, таймауты и Circuit Breaker реализованы (B4). Демонстрация выполняется через
+общий Swagger; Python-библиотека в текущий объём работы не входит.
 Исходный монолит сохранён в `legacy-lab1/` для этого переноса.
 
 ## Запуск
@@ -23,10 +24,74 @@ docker compose up --build --wait
 - Eureka: http://localhost:8761
 - Config: http://localhost:8888/project-service/default
 
+Если порты заняты, измените `GATEWAY_PORT`, `EUREKA_PORT`, `CONFIG_PORT` в `.env`.
+Например, `GATEWAY_PORT=18080` и `CONFIG_PORT=18888`; тогда Swagger будет доступен
+на http://localhost:18080/swagger-ui.html. Адреса между контейнерами менять не нужно.
+
 Регистрация/обновление кеша Eureka может занять несколько секунд после успешных healthcheck.
 `python3 scripts/smoke.py` ждёт discovery, проверяет конфигурацию, Swagger, создаёт пользователя,
 проект и эксперимент через Gateway, проверяет soft delete и закрытые внутренние URL.
 Скрипт оставляет созданные тестовые данные с уникальными именами.
+
+## Демонстрация через Swagger
+
+Откройте `/swagger-ui.html` на порту Gateway. В списке спецификаций выбирайте
+**Projects**, **Tracking**, **Registry**; запросы выполняются кнопкой **Try it out → Execute**.
+UUID из ответов подставляйте вместо обозначений ниже. При повторном показе меняйте
+nickname и имя проекта, чтобы не получить конфликт уникальности.
+
+1. **Projects:** `POST /api/v1/users`:
+   ```json
+   {"nickname":"demo_engineer","password":"demo-password-123","role":"ML_ENGINEER"}
+   ```
+   Сохраните `id` как `USER_ID`. Создайте проект через `POST /api/v1/projects`:
+   ```json
+   {"name":"demo-lab2","ownerId":"USER_ID"}
+   ```
+   Сохраните `PROJECT_ID`. Через `POST /api/v1/projects/{projectId}/experiments`
+   создайте эксперимент с телом `{"name":"baseline"}` и сохраните `EXPERIMENT_ID`.
+2. **Tracking:** `POST /api/v1/experiments/{experimentId}/runs`:
+   ```json
+   {"authorId":"USER_ID","name":"demo-training"}
+   ```
+   Сохраните `RUN_ID`. Вызовите `POST /api/v1/runs/{runId}/start` без тела.
+   Добавьте метрики через `POST /api/v1/runs/{runId}/metrics/batch`:
+   ```json
+   {"metrics":[{"name":"loss","value":0.2,"step":0},{"name":"loss","value":0.1,"step":1}]}
+   ```
+   Через `POST /api/v1/runs/{runId}/artifacts` зарегистрируйте модель:
+   ```json
+   {"name":"model","type":"MODEL","path":"local/model.bin","sizeBytes":42}
+   ```
+   Сохраните `ARTIFACT_ID`. Здесь сохраняются метаданные; загрузка файла не требуется.
+   Завершите запуск: `POST /api/v1/runs/{runId}/complete` без тела.
+3. **Registry:** `POST /api/v1/projects/{projectId}/model-versions`:
+   ```json
+   {"userId":"USER_ID","artifactId":"ARTIFACT_ID"}
+   ```
+   Сохраните `VERSION_ID`. Последовательно вызовите `/{versionId}/stage` и
+   `/{versionId}/promote` относительно этого же префикса, оба с телом
+   `{"userId":"USER_ID"}`. `GET /production` вернёт опубликованную версию.
+   Повторите шаги 2–3 с новым запуском: номер версии увеличится,
+   а предыдущая версия перейдёт в `ARCHIVED`.
+
+Дополнительные проверки в Swagger:
+
+- `GET /api/v1/runs/{runId}/metrics?page=0&size=1` возвращает одну запись
+  и заголовок `X-Total-Count: 2`.
+- Создайте второй запуск эксперимента. `GET /api/v1/experiments/{experimentId}/runs?size=1`
+  вернёт `X-Has-Next: true` и `X-Next-Cursor`; передайте курсор в `after` для следующей страницы.
+- Повторная регистрация того же артефакта в Registry даёт 409;
+  добавление метрики в завершённый запуск — 422; некорректное тело — 400.
+- Для отказа зависимости выполните `docker compose stop project-service` и несколько раз
+  создайте запуск в Tracking: ответ 503. После открытия circuit запросы быстро отклоняются.
+  Выполните `docker compose start project-service`, дождитесь healthcheck и обновления Eureka;
+  после паузы circuit в 10 секунд успешные пробные вызовы восстановят работу.
+
+Eureka показывает зарегистрированные сервисы, а `/project-service/default` на порту Config
+Server — централизованную конфигурацию. Детали транзакций и карта файлов приведены
+в README каждого бизнес-сервиса ниже. Скрипты `scripts/*smoke.py` оставлены для автоматических
+проверок и CI; для демонстрации они не нужны.
 
 ## Сборка и тесты
 

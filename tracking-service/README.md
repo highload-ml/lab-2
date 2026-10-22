@@ -25,7 +25,8 @@ Every read page has a hard limit of 50, even if MAX_PAGE_SIZE is larger. Batch w
 allow up to 100 entries; this is independent of the read-page limit.
 
 Run scrolling intentionally changes the Lab 1 response from an envelope to an array;
-clients must read navigation headers instead of `items/nextCursor` in the body (B5).
+clients must read navigation headers instead of `items/nextCursor` in the body.
+The current demonstration uses the shared Swagger UI; no Python client is required.
 
 Errors use ProblemDetail: invalid input 400, missing resource 404, duplicate 409,
 invalid run state 422, unavailable project service 503. Unexpected error details stay

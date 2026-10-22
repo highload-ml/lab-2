@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
+@org.springframework.test.context.TestPropertySource(properties = "app.pagination.max-page-size=100")
 class ProjectControllerIntegrationTest extends ProjectModuleIntegrationTest {
 
     private static final String PROJECTS = "/api/v1/projects";
