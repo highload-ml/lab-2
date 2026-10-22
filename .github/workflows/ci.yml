@@ -20,7 +20,7 @@ jobs:
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -38,13 +38,24 @@ jobs:
           cache-provider: basic
 
       - name: Verify Docker Compose configuration
-        run: docker compose config --quiet
+        run: docker compose --env-file .env.example config --quiet
 
       - name: Build and run tests
         run: ./gradlew clean check jacocoTestReport --no-daemon
 
-      - name: Build application image
-        run: docker build --tag highload-ml:ci .
+      - name: Build and start microservices
+        run: docker compose --env-file .env.example up --build --wait --wait-timeout 240
+
+      - name: Verify discovery, config and public API
+        run: python3 scripts/smoke.py
+
+      - name: Collect container logs
+        if: always()
+        run: docker compose --env-file .env.example logs --no-color > compose.log
+
+      - name: Stop microservices
+        if: always()
+        run: docker compose --env-file .env.example down --volumes
 
       - name: Upload test and coverage reports
         if: always()
@@ -52,7 +63,8 @@ jobs:
         with:
           name: verification-reports
           path: |
-            build/reports/tests/test
-            build/reports/jacoco/test
+            **/build/reports/tests/
+            **/build/reports/jacoco/
+            compose.log
           if-no-files-found: warn
           retention-days: 14

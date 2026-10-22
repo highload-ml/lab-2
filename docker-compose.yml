@@ -2,42 +2,161 @@ services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: lab1
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PROJECT_DB_PASSWORD: ${PROJECT_DB_PASSWORD:?Set PROJECT_DB_PASSWORD in .env}
+      TRACKING_DB_PASSWORD: ${TRACKING_DB_PASSWORD:?Set TRACKING_DB_PASSWORD in .env}
+      REGISTRY_DB_PASSWORD: ${REGISTRY_DB_PASSWORD:?Set REGISTRY_DB_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/10-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d lab1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
-  backend:
+  discovery-server:
     build:
       context: .
-      dockerfile: Dockerfile
+      args:
+        SERVICE: discovery-server
+    ports:
+      - "127.0.0.1:8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8761/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  config-server:
+    build:
+      context: .
+      args:
+        SERVICE: config-server
     environment:
+      CONFIG_REPO: file:/config/
+    volumes:
+      - ./config:/config:ro
+    ports:
+      - "127.0.0.1:8888:8888"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  project-service:
+    build:
+      context: .
+      args:
+        SERVICE: project-service
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      SERVER_PORT: 8081
       DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: lab1
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_NAME: project
+      DB_USERNAME: project
+      DB_PASSWORD: ${PROJECT_DB_PASSWORD:?Set PROJECT_DB_PASSWORD in .env}
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  tracking-service:
+    build:
+      context: .
+      args:
+        SERVICE: tracking-service
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      SERVER_PORT: 8082
+      DB_HOST: db
+      DB_NAME: tracking
+      DB_USERNAME: tracking
+      DB_PASSWORD: ${TRACKING_DB_PASSWORD:?Set TRACKING_DB_PASSWORD in .env}
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  registry-service:
+    build:
+      context: .
+      args:
+        SERVICE: registry-service
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      SERVER_PORT: 8083
+      DB_HOST: db
+      DB_NAME: registry
+      DB_USERNAME: registry
+      DB_PASSWORD: ${REGISTRY_DB_PASSWORD:?Set REGISTRY_DB_PASSWORD in .env}
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  api-gateway:
+    build:
+      context: .
+      args:
+        SERVICE: api-gateway
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://discovery-server:8761/eureka/
       SERVER_PORT: 8080
-      MAX_PAGE_SIZE: 50
     ports:
       - "8080:8080"
     depends_on:
-      db:
+      config-server:
         condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      project-service:
+        condition: service_healthy
+      tracking-service:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
 
 volumes:
   postgres-data:
-
-networks:
-  default:
-    ipam:
-      config:
-        - subnet: 10.201.1.0/24

@@ -1,23 +1,13 @@
 FROM eclipse-temurin:21-jdk AS builder
-
 WORKDIR /workspace
-
-COPY gradlew build.gradle settings.gradle ./
-COPY gradle gradle
-RUN chmod +x gradlew
-
-COPY src src
-RUN ./gradlew clean bootJar --no-daemon
+COPY . .
+ARG SERVICE=project-service
+RUN chmod +x gradlew && ./gradlew :${SERVICE}:bootJar --no-daemon && cp ${SERVICE}/build/libs/app.jar /app.jar
 
 FROM eclipse-temurin:21-jre
-
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 spring
 WORKDIR /app
-
-RUN useradd --system --uid 10001 spring
-COPY --from=builder /workspace/build/libs/*.jar app.jar
-
+COPY --from=builder /app.jar app.jar
 USER spring
-
-EXPOSE 8080
-
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

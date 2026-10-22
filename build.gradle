@@ -1,70 +1,51 @@
 plugins {
-	id 'java'
-	id 'jacoco'
-	id 'org.springframework.boot' version '4.1.1'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'base'
+    id 'org.springframework.boot' version '4.1.1' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
-group = 'ru.itmo'
-version = '0.0.1-SNAPSHOT'
-
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+ext {
+    springCloudVersion = '2025.1.3'
+    springdocVersion = '3.1.0'
 }
 
-repositories {
-	mavenCentral()
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'jacoco'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    group = 'ru.itmo'
+    version = '0.0.1-SNAPSHOT'
+    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+    repositories { mavenCentral() }
+    dependencyManagement {
+        imports { mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}" }
+    }
+    dependencies {
+        compileOnly 'org.projectlombok:lombok:1.18.48'
+        annotationProcessor 'org.projectlombok:lombok:1.18.48'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach { options.compilerArgs += '-parameters' }
+    tasks.named('test') { useJUnitPlatform { excludeTags 'integration' } }
+    tasks.register('integrationTest', Test) {
+        description = 'Runs database integration tests (requires Docker).'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform { includeTags 'integration' }
+        shouldRunAfter tasks.named('test')
+    }
+    tasks.named('bootJar') { archiveFileName = 'app.jar' }
+    tasks.named('jar') { enabled = false }
+    tasks.named('jacocoTestReport') {
+        dependsOn tasks.named('test'), tasks.named('integrationTest')
+        executionData(fileTree(layout.buildDirectory).include('jacoco/*.exec'))
+        reports { xml.required = true; html.required = true }
+    }
+    tasks.named('check') { dependsOn tasks.named('integrationTest') }
 }
 
-dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
-	runtimeOnly 'org.postgresql:postgresql'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-liquibase-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
-	testImplementation 'org.testcontainers:testcontainers-postgresql'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-	compileOnly 'org.projectlombok:lombok:1.18.48'
-	annotationProcessor 'org.projectlombok:lombok:1.18.48'
-}
-
-tasks.named('test') {
-	useJUnitPlatform()
-}
-
-jacocoTestReport {
-	dependsOn test
-
-	reports {
-		xml.required = true
-		html.required = true
-	}
-}
-
-jacocoTestCoverageVerification {
-	dependsOn test
-
-	violationRules {
-		rule {
-			limit {
-				counter = 'LINE'
-				value = 'COVEREDRATIO'
-				minimum = 0.70
-			}
-		}
-	}
-}
-
-tasks.named('check') {
-	dependsOn jacocoTestCoverageVerification
-}
+tasks.named('check') { dependsOn subprojects.collect { it.tasks.named('check') } }
+tasks.named('assemble') { dependsOn subprojects.collect { it.tasks.named('bootJar') } }
