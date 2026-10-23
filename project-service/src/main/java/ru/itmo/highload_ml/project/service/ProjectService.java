@@ -36,9 +36,6 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final ExperimentRepository experimentRepository;
 
-    /**
-     * The project and its initial OWNER membership must commit or roll back together.
-     */
     @Transactional
     public ProjectResponse create(CreateProjectRequest request) {
         User owner = userRepository.findById(request.ownerId())
@@ -79,10 +76,6 @@ public class ProjectService {
         return projectMapper.toResponse(project);
     }
 
-    /**
-     * Experiments prevent deletion. Otherwise memberships and the project are removed atomically;
-     * the membership FK also cascades as a database-level safety net.
-     */
     @Transactional
     public void delete(UUID id) {
         findProject(id);

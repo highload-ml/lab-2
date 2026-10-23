@@ -95,6 +95,13 @@ class ModelVersionIntegrationTest extends BaseIntegrationTest {
         Callable<Boolean> attempt = () -> {
             try { service.register(project, artifact); return true; }
             catch (ModelArtifactAlreadyRegisteredException expected) { return false; }
+            catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+                var exchange = org.springframework.mock.web.server.MockServerWebExchange.from(
+                        org.springframework.mock.http.server.reactive.MockServerHttpRequest.get("/model-versions").build());
+                assertThat(new ru.itmo.highload_ml.registry.api.ApiExceptionHandler().handle(conflict, exchange).getStatus())
+                        .isEqualTo(409);
+                return false;
+            }
         };
         assertThat(together(attempt, attempt)).containsExactlyInAnyOrder(true, false);
         assertThat(register().version()).isEqualTo(2);

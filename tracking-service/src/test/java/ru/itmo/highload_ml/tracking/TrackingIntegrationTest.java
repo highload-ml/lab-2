@@ -91,7 +91,7 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
                 .expectBody().jsonPath("$.length()").isEqualTo(10)
                 .jsonPath("$[0].step").isEqualTo(50).jsonPath("$[9].step").isEqualTo(59);
     }
-    @Test void keysetHasNoOverlapEvenWhenTimestampsMatch() {
+    @Test void pagesHaveNoOverlapEvenWhenTimestampsMatch() {
         for (int i = 0; i < 3; i++) create();
         db.sql("UPDATE runs SET created_at = '2026-01-01T00:00:00Z'").then().block();
         var older = create();
@@ -101,12 +101,22 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
                 .expectStatus().isOk().expectHeader().doesNotExist("X-Total-Count")
                 .expectHeader().valueEquals("X-Has-Next", "true").expectBodyList(RunResponse.class).returnResult();
         assertThat(first.getResponseBody()).hasSize(2);
-        String cursor = first.getResponseHeaders().getFirst("X-Next-Cursor");
-        var second = http.get().uri("/api/v1/experiments/{id}/runs?size=2&after={cursor}", experiment, cursor).exchange()
+        var second = http.get().uri("/api/v1/experiments/{id}/runs?size=2&page=1", experiment).exchange()
                 .expectStatus().isOk().expectHeader().valueEquals("X-Has-Next", "false")
-                .expectHeader().doesNotExist("X-Next-Cursor").expectBodyList(RunResponse.class).returnResult();
+                .expectBodyList(RunResponse.class).returnResult();
         assertThat(second.getResponseBody()).hasSize(2).doesNotContainAnyElementsOf(first.getResponseBody());
         assertThat(second.getResponseBody().get(1).id()).isEqualTo(older.id());
+    }
+    @Test void runPagesAreScopedAndCappedWithoutTotalCount() {
+        for (int i = 0; i < 52; i++) create();
+        runs.save(new Run(UUID.randomUUID(), author, "another experiment")).block();
+        http.get().uri("/api/v1/experiments/{id}/runs?size=100", experiment).exchange().expectStatus().isOk()
+                .expectHeader().doesNotExist("X-Total-Count").expectHeader().valueEquals("X-Has-Next", "true")
+                .expectBody().jsonPath("$.length()").isEqualTo(50);
+        http.get().uri("/api/v1/experiments/{id}/runs?size=100&page=1", experiment).exchange().expectStatus().isOk()
+                .expectHeader().valueEquals("X-Has-Next", "false").expectBody().jsonPath("$.length()").isEqualTo(2);
+        http.get().uri("/api/v1/experiments/{id}/runs?size=50&page=2", experiment).exchange().expectStatus().isOk()
+                .expectHeader().valueEquals("X-Has-Next", "false").expectBody().json("[]");
     }
     @Test void repeatedStartIsRejected() {
         var run = create();
@@ -149,7 +159,7 @@ class TrackingIntegrationTest extends BaseIntegrationTest {
                 .header("Content-Type", "application/json").exchange().expectStatus().isBadRequest();
         http.get().uri(path + "/metrics?page=-1").exchange().expectStatus().isBadRequest();
         http.get().uri(path + "/artifacts?size=0").exchange().expectStatus().isBadRequest();
-        http.get().uri("/api/v1/experiments/{id}/runs?after=invalid", experiment).exchange().expectStatus().isBadRequest();
+        http.get().uri("/api/v1/experiments/{id}/runs?page=-1", experiment).exchange().expectStatus().isBadRequest();
         http.get().uri("/api/v1/runs/{id}", UUID.randomUUID()).exchange().expectStatus().isNotFound();
         http.get().uri("/api/v1/runs/not-a-uuid").exchange().expectStatus().isBadRequest();
     }

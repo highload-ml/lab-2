@@ -1,5 +1,7 @@
 package ru.itmo.highload_ml.shared.api;
 
+import java.sql.SQLException;
+import org.springframework.dao.DataIntegrityViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -29,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-// Must run before Spring's ProblemDetailsExceptionHandler (spring.mvc.problemdetails.enabled), which has @Order(0)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -110,12 +111,22 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(status).body(problem);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleIntegrityViolation(
+            DataIntegrityViolationException exception, HttpServletRequest request) {
+        if (exception.getMostSpecificCause() instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(createProblem(HttpStatus.CONFLICT,
+                    "Conflict", "A record with these values already exists", request));
+        }
+        return handleUnexpectedException(exception, request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpectedException(
             Exception exception,
             HttpServletRequest request
     ) {
-        // Spring MVC exceptions (404 no route, 405, 415, ...) already carry a safe ProblemDetail
+
         if (exception instanceof ErrorResponse errorResponse) {
             HttpStatusCode status = errorResponse.getStatusCode();
             ProblemDetail problem = errorResponse.getBody();

@@ -4,8 +4,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,17 +32,11 @@ public class RunService {
     public Mono<Run> requireRun(UUID id) {
         return runs.findById(id).switchIfEmpty(Mono.error(new RunNotFoundException(id)));
     }
-    public Flux<RunResponse> findAll(UUID experimentId, RunCursor cursor, int limit) {
-        var page = PageRequest.of(0, limit, Sort.by("createdAt", "id").descending());
-        return projects.requireActiveExperiment(experimentId).thenMany(Flux.defer(() -> {
-            if (cursor == null) return runs.findByExperimentId(experimentId, page);
-            // Equal timestamps come first, then older runs. Both queries are bounded.
-            return Flux.concat(
-                    runs.findByExperimentIdAndCreatedAtAndIdLessThan(
-                            experimentId, cursor.createdAt(), cursor.id(), page),
-                    runs.findByExperimentIdAndCreatedAtLessThan(
-                            experimentId, cursor.createdAt(), page)).take(limit);
-        })).map(mapper::toResponse);
+    public Flux<RunResponse> findAll(UUID experimentId, Pageable page) {
+        return projects.requireActiveExperiment(experimentId).thenMany(Flux.defer(() ->
+                runs.findByExperimentId(experimentId, page)
+                        .concatWith(Flux.defer(() -> runs.findByExperimentId(experimentId, page.next()).take(1)))))
+                .map(mapper::toResponse);
     }
 
     public Mono<RunResponse> start(UUID id) { return transition(id, RunStatus.RUNNING); }
@@ -61,6 +54,6 @@ public class RunService {
                     else run.setFinishedAt(now.isBefore(run.getStartedAt()) ? run.getStartedAt() : now);
                     run.setStatus(target);
                     return runs.save(run).map(mapper::toResponse);
-                })).single(); // single() emits the response only after transaction completion.
+                })).single();
     }
 }

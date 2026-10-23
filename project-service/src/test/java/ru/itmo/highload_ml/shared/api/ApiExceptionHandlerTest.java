@@ -102,6 +102,18 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    void onlyUniqueStorageErrorsBecomeConflicts() {
+        var duplicate = new org.springframework.dao.DataIntegrityViolationException("secret constraint",
+                new java.sql.SQLException("secret SQL", "23505"));
+        var response = handler.handleIntegrityViolation(duplicate, request);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().getDetail()).isEqualTo("A record with these values already exists");
+        var other = new org.springframework.dao.DataIntegrityViolationException("secret constraint",
+                new java.sql.SQLException("secret SQL", "23503"));
+        assertThat(handler.handleIntegrityViolation(other, request).getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
     void keepsStatusOfSpringMvcErrorResponses() {
         ResponseEntity<ProblemDetail> response = handler.handleUnexpectedException(
                 new NoResourceFoundException(HttpMethod.GET, "/missing", "missing"), request);

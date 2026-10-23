@@ -5,7 +5,6 @@
 Registry реализован на WebFlux + JPA (B3), см. [registry-service/README.md](registry-service/README.md).
 Feign-клиенты, таймауты и Circuit Breaker реализованы (B4). Демонстрация выполняется через
 общий Swagger; Python-библиотека в текущий объём работы не входит.
-Исходный монолит сохранён в `legacy-lab1/` для этого переноса.
 
 ## Запуск
 
@@ -80,7 +79,8 @@ nickname и имя проекта, чтобы не получить конфли
 - `GET /api/v1/runs/{runId}/metrics?page=0&size=1` возвращает одну запись
   и заголовок `X-Total-Count: 2`.
 - Создайте второй запуск эксперимента. `GET /api/v1/experiments/{experimentId}/runs?size=1`
-  вернёт `X-Has-Next: true` и `X-Next-Cursor`; передайте курсор в `after` для следующей страницы.
+  вернёт `X-Has-Next: true`; запросите `page=1&size=1` для следующей страницы.
+  Общее количество записей не вычисляется.
 - Повторная регистрация того же артефакта в Registry даёт 409;
   добавление метрики в завершённый запуск — 422; некорректное тело — 400.
 - Для отказа зависимости выполните `docker compose stop project-service` и несколько раз
@@ -130,10 +130,6 @@ Config Server при bootRun ищет `../config/` относительно св
 
 Оба сервиса получают Config и регистрируются в Eureka. Tracking использует R2DBC
 для запросов и JDBC для Liquibase; registry — JPA/JDBC и Liquibase.
-Исходники ЛР1 сохранены в `legacy-lab1/` для сравнения.
-
-Для проверки исходного монолита: `./gradlew -PincludeLegacy :legacy-lab1:bootJar`.
-Не запускайте его одновременно с Gateway на стандартном порту 8080.
 
 ## B4: отказы зависимостей
 

@@ -20,11 +20,21 @@ class RunControllerTest {
         http = WebTestClient.bindToController(new RunController(service, new TrackingPagination(100)))
                 .controllerAdvice(new ApiExceptionHandler()).build();
     }
-    @Test void exposesCursorHeadersAndNeverLeaksExtraRow() {
-        when(service.findAll(eq(experiment), isNull(), eq(3))).thenReturn(Flux.just(run, run, run));
+    @Test void exposesHasNextAndNeverLeaksExtraRow() {
+        when(service.findAll(eq(experiment), any())).thenReturn(Flux.just(run, run, run));
         http.get().uri("/api/v1/experiments/{id}/runs?size=2", experiment).exchange().expectStatus().isOk()
-                .expectHeader().valueEquals("X-Has-Next", "true").expectHeader().exists("X-Next-Cursor")
+                .expectHeader().valueEquals("X-Has-Next", "true")
                 .expectHeader().doesNotExist("X-Total-Count").expectBody().jsonPath("$.length()").isEqualTo(2);
+    }
+    @Test void duplicateStorageErrorsAreSafeConflicts() {
+        when(service.getById(id)).thenReturn(Mono.error(new org.springframework.dao.DuplicateKeyException("secret constraint")));
+        http.get().uri("/api/v1/runs/{id}", id).exchange().expectStatus().isEqualTo(409)
+                .expectBody().jsonPath("$.detail").isEqualTo("A record with these values already exists");
+    }
+    @Test void otherStorageErrorsRemainServerErrors() {
+        when(service.getById(id)).thenReturn(Mono.error(new org.springframework.dao.DataIntegrityViolationException("secret constraint")));
+        http.get().uri("/api/v1/runs/{id}", id).exchange().expectStatus().is5xxServerError()
+                .expectBody().jsonPath("$.detail").isEqualTo("An unexpected error occurred");
     }
     @Test void unexpectedErrorsAreSanitized() {
         when(service.getById(id)).thenReturn(Mono.error(new IllegalStateException("secret database password")));
@@ -41,8 +51,8 @@ class RunControllerTest {
         http.post().uri("/api/v1/experiments/{id}/runs", experiment).bodyValue(new CreateRunRequest(UUID.randomUUID(), "run"))
                 .exchange().expectStatus().isCreated().expectHeader().valueEquals("Location", "/api/v1/runs/" + id);
     }
-    @Test void rejectsInvalidCursorBeforeCallingService() {
-        http.get().uri("/api/v1/experiments/{id}/runs?after=invalid", experiment).exchange().expectStatus().isBadRequest();
+    @Test void rejectsInvalidPageBeforeCallingService() {
+        http.get().uri("/api/v1/experiments/{id}/runs?page=-1", experiment).exchange().expectStatus().isBadRequest();
         verifyNoInteractions(service);
     }
 }

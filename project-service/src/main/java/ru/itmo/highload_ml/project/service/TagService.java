@@ -1,8 +1,6 @@
 package ru.itmo.highload_ml.project.service;
 
-import org.hibernate.exception.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,8 +19,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TagService {
 
-    private static final String UNIQUE_NAME_CONSTRAINT = "uk_tags_name";
-
     private final TagRepository tagRepository;
 
     @Transactional
@@ -30,17 +26,7 @@ public class TagService {
         if (tagRepository.existsByName(request.name())) {
             throw new TagNameAlreadyTakenException(request.name());
         }
-        try {
-            return toResponse(tagRepository.saveAndFlush(new Tag(request.name())));
-        } catch (DataIntegrityViolationException e) {
-            for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-                if (cause instanceof ConstraintViolationException violation
-                        && UNIQUE_NAME_CONSTRAINT.equals(violation.getConstraintName())) {
-                    throw new TagNameAlreadyTakenException(request.name());
-                }
-            }
-            throw e;
-        }
+        return toResponse(tagRepository.saveAndFlush(new Tag(request.name())));
     }
 
     public TagResponse getById(UUID tagId) {

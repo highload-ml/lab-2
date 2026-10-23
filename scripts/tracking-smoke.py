@@ -43,7 +43,7 @@ artifact, _ = request(path + "/artifacts", "POST", {"name": "model", "type": "MO
 request(path + "/complete", "POST")
 request(path + "/metrics", "POST", {"name": "loss", "value": 0.05, "step": 2}, 422)
 request(path + "/artifacts/" + artifact["id"])
-rows, headers = request(collection)
+rows, headers = request(collection + "?page=0&size=1")
 assert len(rows) == 1 and headers["X-Has-Next"] == "false" and "X-Total-Count" not in headers
 request("/internal/artifacts/" + artifact["id"], expected=404)
 request(experiments + "/" + experiment["id"], "DELETE", expected=204)

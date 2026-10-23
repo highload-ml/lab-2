@@ -9,9 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Classic pagination: page content in the body, total element count in the X-Total-Count header.
- */
 @Component
 public class Pagination {
 
@@ -24,9 +21,6 @@ public class Pagination {
         this.maxPageSize = Math.min(50, maxPageSize);
     }
 
-    /**
-     * Sizes above the configured limit are reduced to it rather than rejected.
-     */
     public PageRequest pageRequest(int page, int size, Sort sort) {
         return PageRequest.of(page, Math.min(size, maxPageSize), sort);
     }

@@ -21,16 +21,13 @@ public class ArtifactService {
     private final TransactionalOperator transactions;
     private final RunService runService;
 
-    /** Validate status and insert metadata in one transaction. */
     public Mono<ArtifactResponse> register(UUID id, CreateArtifactRequest request) {
         return transactions.execute(status -> runs.findById(id)
                 .switchIfEmpty(Mono.error(new RunNotFoundException(id)))
                 .flatMap(run -> run.getStatus() == RunStatus.RUNNING
                         ? artifacts.save(new Artifact(id, request.name(), request.type(), request.path(), request.sizeBytes()))
                         : Mono.error(new RunNotAcceptingArtifactsException(id, run.getStatus())))
-                .map(mapper::toResponse)).single()
-                .onErrorMap(error -> SqlErrors.unique(error, "uk_artifacts_run_name"),
-                        error -> new ArtifactNameAlreadyTakenException(id, request.name()));
+                .map(mapper::toResponse)).single();
     }
     public Mono<ArtifactResponse> getById(UUID runId, UUID artifactId) {
         return runService.requireRun(runId).then(artifacts.findByIdAndRunId(artifactId, runId))

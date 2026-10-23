@@ -46,7 +46,7 @@ public class ProjectMembershipService {
             throw new MembershipAlreadyExistsException(projectId, user.getId());
         }
         try {
-            // flush inside the try: a concurrent add of the same pair hits the composite PK and becomes 409
+
             return projectMapper.toMemberResponse(
                     membershipRepository.saveAndFlush(new ProjectMembership(project, user, request.role())));
         } catch (DataIntegrityViolationException e) {
@@ -65,10 +65,6 @@ public class ProjectMembershipService {
         return membershipRepository.findByIdProjectId(projectId, pageable).map(projectMapper::toMemberResponse);
     }
 
-    /**
-     * Invariant: a project that has an owner never loses its last one.
-     * The owner count check and the role change run in one transaction, so a failed check leaves no partial write.
-     */
     @Transactional
     public MemberResponse changeRole(UUID projectId, UUID userId, UpdateMemberRoleRequest request) {
         ProjectMembership membership = findMembership(projectId, userId);
@@ -79,9 +75,6 @@ public class ProjectMembershipService {
         return projectMapper.toMemberResponse(membership);
     }
 
-    /**
-     * Same invariant as {@link #changeRole}.
-     */
     @Transactional
     public void removeMember(UUID projectId, UUID userId) {
         ProjectMembership membership = findMembership(projectId, userId);

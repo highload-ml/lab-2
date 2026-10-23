@@ -73,21 +73,19 @@ class RunServiceTest extends ServiceTestSupport {
         StepVerifier.create(service.create(experimentId, new CreateRunRequest(author, "run")))
                 .assertNext(run -> { assertThat(run.id()).isEqualTo(id); assertThat(run.status()).isEqualTo(RunStatus.CREATED); }).verifyComplete();
     }
-    @Test void scrollUsesKeysetPosition() {
-        var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
+    @Test void scrollingReturnsPageAndOneLookaheadRow() {
+        var page = PageRequest.of(1, 2, Sort.by("createdAt", "id").descending());
         Run run = new Run(experimentId, UUID.randomUUID(), "run"); run.setId(id);
-        var cursor = new RunCursor(Instant.now(), id);
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
-        when(runs.findByExperimentIdAndCreatedAtAndIdLessThan(
-                experimentId, cursor.createdAt(), id, page)).thenReturn(Flux.just(run));
-        when(runs.findByExperimentIdAndCreatedAtLessThan(
-                experimentId, cursor.createdAt(), page)).thenReturn(Flux.empty());
-        StepVerifier.create(service.findAll(experimentId, cursor, 3)).expectNextCount(1).verifyComplete();
+        when(runs.findByExperimentId(experimentId, page)).thenReturn(Flux.just(run, run));
+        when(runs.findByExperimentId(experimentId, page.next())).thenReturn(Flux.just(run, run));
+        StepVerifier.create(service.findAll(experimentId, page)).expectNextCount(3).verifyComplete();
     }
-    @Test void firstScrollUsesBoundedQuery() {
+    @Test void emptyPageReturnsNoRows() {
         var page = PageRequest.of(0, 3, Sort.by("createdAt", "id").descending());
         when(projects.requireActiveExperiment(experimentId)).thenReturn(Mono.empty());
         when(runs.findByExperimentId(experimentId, page)).thenReturn(Flux.empty());
-        StepVerifier.create(service.findAll(experimentId, null, 3)).verifyComplete();
+        when(runs.findByExperimentId(experimentId, page.next())).thenReturn(Flux.empty());
+        StepVerifier.create(service.findAll(experimentId, page)).verifyComplete();
     }
 }

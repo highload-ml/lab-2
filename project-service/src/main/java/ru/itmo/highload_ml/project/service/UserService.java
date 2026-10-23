@@ -1,7 +1,6 @@
 package ru.itmo.highload_ml.project.service;
 import lombok.RequiredArgsConstructor;
 
-import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +37,7 @@ public class UserService {
         return transactionOperations.execute(status -> {
             requireNicknameFree(request.nickname());
             try {
-                // flush inside the try: a concurrent insert of the same nickname surfaces here as 409, not 500
+
                 return userMapper.toResponse(
                         userRepository.saveAndFlush(new User(request.nickname(), "123", request.role())));
             } catch (DataIntegrityViolationException e) {

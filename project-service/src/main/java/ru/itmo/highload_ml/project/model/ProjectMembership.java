@@ -18,9 +18,6 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Many-to-many link between Project and User carrying extra columns (role, joinedAt).
- */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
